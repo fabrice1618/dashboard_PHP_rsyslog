@@ -12,7 +12,17 @@ Each group develops an application focused on security, logging, and web interfa
 
 ## Key Commands
 
-
+### Evaluation (eval.py — canonical)
+```bash
+python3 eval.py seed                    # pre-load the grille (24 criteria, parts /18 + /2)
+python3 eval.py load roster.txt         # students, one per line "Group;Name"
+python3 eval.py charge                  # declared workload (%) per student (C9)
+python3 eval.py grade                   # enter levels 0 / 0.25 / 0.5 / 0.75 / 1
+python3 eval.py commits --repo <path>   # per-author commit report (Git traceability)
+python3 eval.py compute                 # preview group + individual grades
+python3 eval.py export                  # one Markdown per student in eval/out/
+```
+`tools/cpi_eval.py` is now a helper only (roster from `groupes.ods`, calc check).
 
 ### PHP Projects
 ```bash
@@ -32,17 +42,18 @@ vendor/bin/phpstan analyse # Static analysis (if configured)
 
 ### Evaluation System Architecture
 
-The evaluation system uses a SQLite database with the following structure:
+`eval.py` is the canonical tool (per-student grading, SQLite). It uses the following structure:
 - **evaluation**: Main evaluation metadata
-- **part**: Evaluation sections with max points
-- **question**: Individual questions with coefficients
-- **student**: Student roster
+- **part**: Evaluation sections with max points (principal /18 = 90 %, advanced /2 = 10 %)
+- **question**: Individual criteria with coefficients (default 1)
+- **student**: Student roster with `group_name` and declared `charge` (%) for individualization
 - **note**: Grades (0, 0.25, 0.5, 0.75, 1) with optional comments
 
 Grade calculation:
 1. Weighted average per section based on question coefficients
 2. Section scores summed according to max points
-3. Final grade normalized to /20 and rounded to nearest 0.5
+3. Group grade normalized to /20 and rounded to nearest 0.5
+4. Individual grade (C9) = group grade × (declared charge ÷ equal share), capped at 20
 
 ## Development Workflow
 

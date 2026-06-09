@@ -10,14 +10,14 @@
 | # | Constat | Gravité | État |
 |:-:|---|:-:|---|
 | C1 | **Formule de note cassée** dans `evaluation.md` : un sans-faute donnait **74/20** | 🔴 Critique | ✅ Corrigé |
-| C2 | **Deux systèmes de notation incompatibles** coexistent (`evaluation.md` vs `eval.py`) | 🔴 Critique | ⚠️ Recommandation |
+| C2 | **Deux systèmes de notation incompatibles** coexistent (`evaluation.md` vs `eval.py`) | 🔴 Critique | ✅ Décidé (eval.py canonique) |
 | C3 | **Liste de groupes périmée** (`evaluation.md` cite G11–G24) ; promo actuelle = G1–G3 | 🟠 Majeur | ✅ Corrigé |
-| C4 | **`CLAUDE.md` décrit l'ancienne promotion** (G11–G24, stacks, IP, identifiants) → biais d'évaluation | 🟠 Majeur | ✅ Atténué |
+| C4 | **`CLAUDE.md` décrit l'ancienne promotion** (G11–G24, stacks, IP, identifiants) → biais d'évaluation | 🟠 Majeur | ✅ Corrigé (section purgée) |
 | C5 | **Arrondi incohérent** : `eval.py` arrondit au 0,5 *supérieur*, la doc dit « au plus proche » | 🟡 Moyen | ✅ Tranché |
-| C6 | **Attendus de l'énoncé non couverts** par la grille (perf, contraintes, IA, traçabilité commits…) | 🟡 Moyen | ⚠️ Recommandation |
-| C7 | **« Bonus » trompeur** : les critères 17-19 valent 10 % de la note, pas un bonus additif | 🟡 Moyen | ⚠️ Recommandation |
-| C8 | **Pondération uniforme** des 16 critères principaux (ANSSI = sitemap) | 🟢 Mineur | ⚠️ Recommandation |
-| C9 | **Note de groupe** sans modulation individuelle, alors que l'énoncé exige la répartition par étudiant | 🟡 Moyen | ⚠️ Recommandation |
+| C6 | **Attendus de l'énoncé non couverts** par la grille (perf, contraintes, IA, traçabilité commits…) | 🟡 Moyen | ✅ Décidé (ajouter critères) |
+| C7 | **« Bonus » trompeur** : les critères 17-19 valent 10 % de la note, pas un bonus additif | 🟡 Moyen | ✅ Décidé (assumé 10 %) |
+| C8 | **Pondération uniforme** des 16 critères principaux (ANSSI = sitemap) | 🟢 Mineur | ✅ Décidé (coefficients) |
+| C9 | **Note de groupe** sans modulation individuelle, alors que l'énoncé exige la répartition par étudiant | 🟡 Moyen | ✅ Décidé (individualisée) |
 
 **Outillage livré pour fiabiliser/reproduire** : `tools/cpi_eval.py` (lecture des groupes, calcul de note déterministe avec self-test, génération des `eval.md`).
 
@@ -206,14 +206,27 @@ python3 tools/cpi_eval.py note --scores "4,4,3,3,4,2,3,3,2,3,3,2,2,2,3,3,2,0,0"
 | `G1/eval.md`, `G2/eval.md`, `G3/eval.md` | **Nouveaux** squelettes d'évaluation (roster + grille corrigée) |
 | `REVUE_EVALUATION.md` | **Ce rapport** |
 
-## 7. Recommandations restantes (décisions de l'enseignant)
+## 7. Décisions de l'enseignant (2026-06-09)
 
-1. **Trancher C2** : déclarer le système canonique (par défaut : `evaluation.md` + `cpi_eval.py`) et retirer/réaligner `eval.py`.
-2. **Décider C6** : ajouter des critères pour perf / contraintes techniques / matériels-logiciels / traçabilité commits / échanges IA, ou les marquer hors périmètre.
-3. **Décider C7** : « bonus » réellement additif, ou bloc « Qualité logicielle » assumé à 10 %.
-4. **Décider C8/C9** : coefficients par critère ? note individualisée ?
-5. **Finaliser C4** : déplacer la description CPLR24 vers un `HISTORIQUE_CPLR24.md`.
-6. **Renseigner `groupes.ods`** : colonne `repository` (liens des dépôts étudiants) dès réception, pour permettre l'évaluation réelle.
+| # | Décision | Mise en œuvre |
+|:-:|---|---|
+| C2 | **`eval.py` devient canonique** (notation par étudiant), réaligné sur les critères de la grille | `eval.py seed` charge la grille (24 critères) ; `cpi_eval.py` ramené au rôle d'utilitaire |
+| C6 | **Ajouter des critères** : performances, contraintes techniques, matériels/logiciels, traçabilité des commits, échanges avec les IA | étendre la grille (+5 critères, barèmes 0-4) |
+| C7 | **Assumer les critères 17-19 comme « Qualité logicielle avancée — 10 % »** (non additif) | renommer/clarifier le bloc dans `evaluation.md` |
+| C8 | **Coefficients par critère** | pondérer les critères dans le moteur de calcul |
+| C9 | **Note individualisée** : modulation par répartition de charge + traçabilité Git par étudiant | mécanisme de modulation individuelle |
+| C4 | **Fait** : section CPLR24 purgée de `CLAUDE.md` (commit `81b6764`) ; archivage `HISTORIQUE_CPLR24.md` non retenu | — |
+
+**Spécifications retenues et implémentées (2026-06-09) :**
+
+1. **Échelle** — 0 / 0,25 / 0,5 / 0,75 / 1 (échelle native d'`eval.py`).
+2. **Coefficients (C8)** — saisis dans `eval.py`, **défaut 1** par critère.
+3. **Modulation individuelle (C9)** — `note_étudiant = note_groupe × (charge ÷ part_égale)`, plafonnée à 20 ; **charge déclarative**. Compte-rendu des commits par étudiant via `eval.py commits --repo <dépôt>`.
+4. **Nouveaux critères (C6)** — intégrés : 17. Performances, 18. Contraintes techniques, 19. Matériels/logiciels, 20. Traçabilité des commits, 21. Échanges avec les IA. Le bloc « Qualité logicielle avancée » devient 22-24.
+
+**Implémentation** : `eval.py` étendu (`seed`, `charge`, `commits`, individualisation, arrondi au plus proche), `evaluation.md` et `CLAUDE.md` réalignés.
+
+**À la main de l'enseignant :** renseigner la colonne `repository` de `groupes.ods` dès réception des dépôts, pour permettre l'évaluation réelle.
 
 ---
 _Rapport généré dans le cadre de la revue « Revue + outillage »._

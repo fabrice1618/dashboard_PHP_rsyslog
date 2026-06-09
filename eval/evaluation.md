@@ -3,15 +3,16 @@
 ## Structure d'évaluation
 
 - Il existe un dossier par groupe d'étudiants. La liste des groupes et leur composition fait foi dans `groupes.ods` (commande `python3 tools/cpi_eval.py roster`). Promotion en cours : G1, G2, G3.
+- **Outil canonique**: La saisie et le calcul sont réalisés avec `eval.py` (notation **par étudiant**, base SQLite). `tools/cpi_eval.py` est désormais un simple utilitaire (lecture du roster, vérification de calcul).
 - **Procédure**: Traiter chaque projet indépendamment. Réinitialiser l'analyse entre chaque projet.
-- **Notation**: Pour chaque critère, attribuer une note de 0 à 4 :
+- **Notation**: Pour chaque critère, attribuer un niveau, enregistré dans `eval.py` sur l'échelle **0 / 0,25 / 0,5 / 0,75 / 1** (homothétique aux 5 niveaux ci-dessous : 0↔0, 1↔0,25, 2↔0,5, 3↔0,75, 4↔1) :
     - **0** : Non réalisé, non traité, inexistant
     - **1** : Abordé superficiellement, incomplet, manque de rigueur
     - **2** : Partiellement réalisé, mélange d'éléments corrects et incorrects
     - **3** : Bien réalisé avec quelques erreurs mineures ou améliorations possibles
     - **4** : Très bien réalisé, complet, conforme aux attentes
-- **Livrable**: Créer un fichier `eval.md` dans chaque dossier groupe avec l'évaluation détaillée
-- **Note finale**: Proposer une note sur 20 basée sur l'ensemble des critères
+- **Livrable**: `python3 eval.py export` génère un fichier Markdown par étudiant dans `eval/out/`.
+- **Note finale**: Calculée par `eval.py` (`compute` / `export`), jamais « à la main ». Voir « Calcul de la note finale ».
 
 ## Critères d'évaluation détaillés
 
@@ -79,7 +80,7 @@
 - **1** : Contexte mentionné superficiellement
 - **0** : Contexte non défini
 
-### 6. Besoins exprimés d'évolution
+### 6. Besoins exprimés (expression du besoin / évolutions)
 **Objectif**: Évaluer l'identification des besoins futurs
 
 - **4** : Besoins d'évolution clairement identifiés et priorisés
@@ -192,7 +193,54 @@
 - **1** : Tentative de modularité mais code peu organisé
 - **0** : Code monolithique, aucune modularité
 
-### 17. Programmation orientée objet (BONUS)
+### 17. Critères de performances
+**Objectif**: Vérifier la définition et la prise en compte d'exigences de performance
+
+- **4** : Critères de performance explicites (temps de réponse, volumétrie de logs, charge supportée) et vérifiés
+- **3** : Critères définis et partiellement vérifiés
+- **2** : Quelques exigences évoquées sans mesure
+- **1** : Mention superficielle
+- **0** : Aucun critère de performance
+
+### 18. Contraintes techniques
+**Objectif**: Évaluer l'identification des contraintes techniques du projet
+
+- **4** : Contraintes complètes et justifiées (OS, services, sécurité, compatibilité, réseau)
+- **3** : Principales contraintes identifiées
+- **2** : Contraintes partiellement identifiées
+- **1** : Mention superficielle
+- **0** : Aucune contrainte technique identifiée
+
+### 19. Matériels et logiciels mis en œuvre
+**Objectif**: Évaluer l'inventaire des moyens matériels et logiciels du projet
+
+- **4** : Liste complète et précise (versions, rôles) des matériels et logiciels
+- **3** : Liste correcte avec quelques manques
+- **2** : Liste partielle
+- **1** : Mention superficielle
+- **0** : Aucune liste
+
+### 20. Traçabilité des commits par étudiant
+**Objectif**: Vérifier la contribution individuelle via l'historique Git (cf. `python3 eval.py commits --repo <dépôt>`)
+
+- **4** : Historique Git clair, commits réguliers et attribuables à chaque étudiant, cohérents avec la répartition déclarée
+- **3** : Bonne traçabilité avec quelques déséquilibres
+- **2** : Traçabilité partielle ou déséquilibrée
+- **1** : Très peu de commits / attribution floue
+- **0** : Aucune traçabilité (pas de dépôt, ou commits non individualisés)
+
+### 21. Échanges avec les IA (prompt / résultat)
+**Objectif**: Évaluer la documentation des échanges avec les IA, exigée par l'énoncé
+
+- **4** : Échanges (prompts et résultats) documentés, pertinents et exploités de façon critique
+- **3** : Échanges documentés et utiles
+- **2** : Quelques échanges fournis
+- **1** : Échanges anecdotiques ou non commentés
+- **0** : Aucun échange fourni
+
+## Critères de qualité logicielle avancée (10 %)
+
+### 22. Programmation orientée objet
 **Objectif**: Évaluer l'utilisation des concepts POO
 
 - **4** : Excellent usage de la POO (classes, héritage, encapsulation, polymorphisme)
@@ -201,7 +249,7 @@
 - **1** : Tentative POO avec des erreurs
 - **0** : Aucune programmation orientée objet
 
-### 18. Utilisation PHPStan (BONUS)
+### 23. Utilisation PHPStan
 **Objectif**: Évaluer l'usage des outils d'analyse statique
 
 - **4** : PHPStan configuré et utilisé, code sans erreurs
@@ -210,7 +258,7 @@
 - **1** : Tentative d'utilisation PHPStan
 - **0** : Aucune utilisation de PHPStan
 
-### 19. Tests unitaires (BONUS)
+### 24. Tests unitaires
 **Objectif**: Évaluer la mise en place de tests automatisés
 
 - **4** : Tests unitaires complets avec bonne couverture
@@ -221,45 +269,55 @@
 
 ## Calcul de la note finale
 
-Chaque critère est noté de 0 à 4. Le maximum d'un bloc est donc `nombre_de_critères × 4`.
+Le calcul est entièrement délégué à `eval.py` (par étudiant, base SQLite) — **aucune arithmétique manuelle**.
 
-**Note sur 20** = (Σ des notes des critères 1-16) / (16 × 4) × 20 × 0.9 + (Σ des bonus critères 17-19) / (3 × 4) × 20 × 0.1
+- Chaque critère reçoit un niveau sur l'échelle 0 / 0,25 / 0,5 / 0,75 / 1 et un **coefficient** (défaut 1, modifiable lors de la saisie via `eval.py config`).
+- La grille est répartie en **deux parties pondérées** :
+    - **Critères principaux** (1-21) → 90 % de la note, partie notée `/18`.
+    - **Qualité logicielle avancée** (22-24 : POO, PHPStan, tests unitaires) → 10 % de la note, partie notée `/2`.
+- Pour chaque partie : moyenne des niveaux **pondérée par les coefficients**, multipliée par le maximum de la partie.
+- **Note de groupe /20** = somme des deux parties, arrondie au **0,5 le plus proche** (`round_half_nearest`).
+- **Note individuelle** (C9) = note de groupe × (charge déclarée ÷ part égale du groupe), **plafonnée à 20** puis arrondie au 0,5. Une contribution égale (charge = 100 % ÷ effectif) laisse la note inchangée. La charge se saisit avec `eval.py charge` ; la traçabilité Git s'obtient avec `eval.py commits --repo <dépôt>`.
 
-- **Critères principaux** (1-16) : 90% de la note → maximum 18/20
-- **Critères bonus** (17-19) : 10% de la note → maximum 2/20
-- Un sans-faute (19 critères à 4) donne donc 20/20.
-- Calcul reproductible et déterministe : `python3 tools/cpi_eval.py note --scores "..."` (19 valeurs 0..4). Ne pas faire l'arithmétique « à la main » / dans le LLM.
-- Arrondi : au 0,5 le plus proche (`round_half_nearest`). NB : l'ancien `eval.py` arrondissait au 0,5 supérieur (`ceil`).
+### Déroulé type
 
-## Format du fichier eval.md
+```bash
+python3 eval.py seed                      # crée la grille (24 critères, parties /18 + /2)
+python3 eval.py load roster.txt           # étudiants, 1 par ligne au format "Groupe;Nom"
+python3 eval.py charge                     # charge déclarative (%) par étudiant
+python3 eval.py grade                      # saisie des niveaux 0 / 0,25 / 0,5 / 0,75 / 1
+python3 eval.py commits --repo <dépôt>     # compte-rendu des commits par étudiant
+python3 eval.py compute                    # aperçu des notes (groupe + individuelle)
+python3 eval.py export                     # un Markdown par étudiant dans eval/out/
+```
+
+## Format de sortie
+
+`python3 eval.py export` produit un fichier Markdown par étudiant dans `eval/out/<Nom>.md` :
 
 ```markdown
-# Évaluation Groupe [Numéro]
+# <Titre de l'évaluation> - <Nom de l'étudiant>
 
-## Critères principaux
+- Date: <horodatage>
+- Groupe: <G…>
+- Note de groupe (livrables): <X>/20 (brut <X.XX>)
+- Charge déclarée: <c>% (part égale <p>% → facteur ×<f>)
+- **Note individuelle: <Y>/20**
 
-### 1. Analyse recommandations ANSSI : [0-4]
-[Justification détaillée]
+## Partie: Critères principaux (/18)
 
-### 2. Procédure installation : [0-4]
-[Justification détaillée]
+Score de la partie: <s> / 18
 
-[...pour tous les critères...]
+| Question | Évaluation | Commentaire |
+|---|---:|---|
+| 1. Analyse des recommandations ANSSI | 0.75 | … |
+| … | … | … |
 
-## Critères bonus
+## Partie: Qualité logicielle avancée (10 %) (/2)
 
-### 17. Programmation orientée objet : [0-4]
-[Justification détaillée]
+Score de la partie: <s> / 2
 
-[...etc...]
-
-## Note finale proposée : [X]/20
-
-**Calcul** : (Σ critères principaux)/(16 × 4) × 20 × 0.9 + (Σ bonus)/(3 × 4) × 20 × 0.1 = [X]/20
-
-## Points forts
-- [Liste des points forts identifiés]
-
-## Points d'amélioration
-- [Liste des améliorations suggérées]
+| … | … | … |
 ```
+
+> Sans charge saisie, la ligne « Note individuelle » est remplacée par « **Note finale** » (= note de groupe, non modulée).

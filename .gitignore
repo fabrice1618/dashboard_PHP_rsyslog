@@ -3,3 +3,13 @@ eval/groupes.ods
 eval/G1/
 eval/G2/
 eval/G3/
+
+# Artefacts d'exécution d'eval.py (contiennent des noms d'étudiants)
+eval/evaluation.db
+eval/out/
+roster.txt
+eval/roster.txt
+
+# Python
+__pycache__/
+*.pyc
