@@ -78,13 +78,31 @@ création manuelle d'une évaluation (`eval.py config`).
 
 > Traiter **chaque projet indépendamment** et réinitialiser l'analyse entre deux projets.
 
-### Étape 0 — Préparer le fichier roster
+### Étape 0 — Réunir les informations des étudiants et préparer le roster
 
-Créer un fichier `roster.txt` (gitignoré), **une ligne par étudiant** au format
-`Groupe;Nom` :
+Cette étape **conditionne tout le pipeline** : elle rassemble ce que les étudiants
+doivent fournir et en tire le fichier `roster.txt` qui sert de point d'entrée à
+`eval.py`. Sans ces éléments, certains critères ne peuvent pas être notés et
+l'individualisation de la note (C9) est impossible.
+
+**Informations initiales à obtenir des étudiants avant de commencer :**
+
+| Information attendue | Pourquoi elle est nécessaire | Alimente |
+|---|---|---|
+| **Composition exacte du groupe** (nom + prénom de chaque membre) | Identifier chaque étudiant et produire un bulletin nominatif par personne | roster (étapes 1-2), bulletins |
+| **Dépôt Git du projet** (URL + accès en lecture) | Source de tous les livrables écrits **et** de l'historique des commits | critère 20 — traçabilité (étape 5), colonne `repository` de `groupes.ods` |
+| **Tableau de répartition de la charge** (% par étudiant, total du groupe = 100 %) | Moduler la note de groupe selon la contribution déclarée de chacun | critère 9 — planification + charge déclarée (étape 3) |
+
+> Ces trois éléments sont des **livrables exigés par l'énoncé** (répartition des tâches
+> par personne, dépôt Git, traçabilité individuelle). À réception, consigner la
+> composition et le dépôt de chaque groupe dans `groupes.ods` (la colonne `repository`
+> est vide tant qu'aucun dépôt n'est rattaché).
+
+Une fois ces informations réunies, créer le fichier `roster.txt` (gitignoré),
+**une ligne par étudiant** au format `Groupe;Nom` :
 
 ```text
-G1;BESSAA Badr
+G1;NOM Prénom
 G2;NOM Prénom
 G3;NOM Prénom
 ```
@@ -94,6 +112,9 @@ La composition exacte se lit depuis `groupes.ods` :
 ```bash
 python3 eval/tools/cpi_eval.py roster
 ```
+
+Ce roster est le **point d'entrée** du pipeline : il fixe la liste des étudiants
+chargés à l'étape 2 et, par conséquent, le nombre de bulletins produits.
 
 ### Étape 1 — Créer la grille
 
