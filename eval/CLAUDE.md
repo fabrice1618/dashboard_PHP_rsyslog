@@ -28,6 +28,10 @@ python3 eval/eval.py commits --repo <path>  # per-author commit report (Git trac
 any time after editing the levels; it refreshes the block between the
 `<!-- eval:calcul … -->` markers (group grade, part scores, individual grades).
 
+To review a group's code, clone its repo (`depot_github` in `input.json`) **inside** its
+folder: `cd eval/G1 && git clone <url>` → `eval/G1/<repo-name>/`. The clone stays local
+(the whole `eval/G*/` directory is gitignored — RGPD) and is the `--repo` path for `commits`.
+
 ### PHP Projects
 ```bash
 # For PHP projects (G13, G14, G22 webapp)

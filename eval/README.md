@@ -52,7 +52,7 @@ note calculée dans chaque `evaluation.md`, dans le bloc délimité par les marq
 | `input.json.example` | Modèle du fichier que les étudiants remplissent. |
 | `REVUE_EVALUATION.md` | Audit historique du dispositif et décisions pédagogiques. |
 | `CLAUDE.md` | Consignes pour l'assistant lors de l'évaluation. |
-| `G1/ G2/ G3/` | Par groupe : `input.json` + `evaluation.md` (non publiés). |
+| `G1/ G2/ G3/` | Par groupe : `input.json` + `evaluation.md` + **dépôt cloné** du groupe (non publiés). |
 | `out/` | Rapports de commits générés (non publié). |
 
 ---
@@ -100,7 +100,24 @@ Chaque groupe remplit son `eval/G*/input.json` (modèle : `eval/input.json.examp
 Ces éléments sont des **livrables exigés par l'énoncé**. La participation sert à
 individualiser la note (sans elle, chaque étudiant reçoit la note de groupe).
 
-### Étape 1 — Le correcteur saisit les niveaux dans `evaluation.md`
+### Étape 1 — Cloner le dépôt du groupe dans `eval/G*/`
+
+Pour relire les rendus, cloner le dépôt indiqué dans `input.json` (`depot_github`)
+**à l'intérieur du dossier du groupe**. Le dépôt cloné garde son nom et reste local :
+le dossier `eval/G*/` est exclu par `.gitignore`, donc le code des étudiants n'est
+**jamais publié** (RGPD).
+
+```bash
+cd eval/G1
+git clone <depot_github>     # URL lue dans eval/G1/input.json → crée eval/G1/<nom-du-depot>/
+cd ../..
+```
+
+> Cloner l'URL **du dépôt** (sans suffixe `/tree/<branche>`). Le correcteur dispose
+> ainsi du code source sous `eval/G1/<nom-du-depot>/` pour la relecture et pour la
+> traçabilité des commits (étape 3).
+
+### Étape 2 — Le correcteur saisit les niveaux dans `evaluation.md`
 
 Partir du modèle `eval/evaluation.modele.md` (déjà en place dans chaque dossier de groupe).
 Pour chaque critère, remplir la colonne **Niveau** (0 / 0,25 / 0,5 / 0,75 / 1) et le
@@ -109,16 +126,16 @@ Git et les points forts / axes d'amélioration.
 
 > Ne pas toucher au bloc entre les marqueurs `<!-- eval:calcul … -->` : il est généré.
 
-### Étape 2 — Traçabilité des commits (critère 20)
+### Étape 3 — Traçabilité des commits (critère 20)
 
 ```bash
-python3 eval/eval.py commits --repo <chemin_du_depot_du_groupe>
+python3 eval/eval.py commits --repo eval/G1/<nom-du-depot>
 ```
 
 Produit `eval/out/commits_<dépôt>.md` : nombre de commits et part par auteur (hors merges),
 puis le détail par auteur. Sert à objectiver la contribution individuelle.
 
-### Étape 3 — Vérifier puis écrire la note
+### Étape 4 — Vérifier puis écrire la note
 
 ```bash
 python3 eval/eval.py compute     # aperçu des notes (groupe + individuelle), sans écrire
@@ -177,9 +194,11 @@ est rédigé par le correcteur et **n'est jamais modifié** par `eval.py`.
 
 ```bash
 # 1. Les étudiants remplissent eval/G*/input.json (membres + participation %).
-# 2. Le correcteur saisit les niveaux dans eval/G*/evaluation.md.
+# 2. Cloner le dépôt du groupe dans son dossier :
+#       cd eval/G1 && git clone <depot_github> && cd ../..   # → eval/G1/<nom-du-depot>/
+# 3. Le correcteur saisit les niveaux dans eval/G*/evaluation.md.
 
-python3 eval/eval.py commits --repo <dépôt>   # compte-rendu des commits par auteur
+python3 eval/eval.py commits --repo eval/G1/<nom-du-depot>   # compte-rendu des commits par auteur
 python3 eval/eval.py compute                  # aperçu des notes (sans écrire)
 python3 eval/eval.py write                     # écrit la note dans chaque evaluation.md
 ```

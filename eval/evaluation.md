@@ -283,8 +283,10 @@ Le calcul est entièrement délégué à `eval.py`, à partir des fichiers — *
 
 ```bash
 # 1. Les étudiants renseignent eval/G*/input.json (membres + participation %).
-# 2. Le correcteur saisit les niveaux dans la colonne Niveau de eval/G*/evaluation.md.
-python3 eval/eval.py commits --repo <dépôt>   # compte-rendu des commits par auteur
+# 2. Cloner le dépôt du groupe dans son dossier (lu dans input.json → depot_github) :
+#       cd eval/G1 && git clone <depot_github> && cd ../..   # → eval/G1/<nom-du-depot>/
+# 3. Le correcteur saisit les niveaux dans la colonne Niveau de eval/G*/evaluation.md.
+python3 eval/eval.py commits --repo eval/G1/<nom-du-depot>   # compte-rendu des commits par auteur
 python3 eval/eval.py compute                  # aperçu des notes (groupe + individuelle)
 python3 eval/eval.py write                    # insère la note calculée dans chaque evaluation.md
 ```
