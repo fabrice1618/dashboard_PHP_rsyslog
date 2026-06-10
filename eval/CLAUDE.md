@@ -4,25 +4,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a student project evaluation repository. The list of groups and their members is authoritative in `groupes.ods` (run `python3 tools/cpi_eval.py roster`). **Current promotion: G1, G2, G3.**
+This is a student project evaluation repository. The roster of each group lives in its own `eval/G*/input.json` (students + declared participation %, filled by the students). **Current promotion: G1, G2, G3.**
 
-> ⚠️ Any per-group expectations from previous promotions must NOT be used when evaluating the current promotion (G1–G3), to avoid biasing the assessment. The authoritative roster is `groupes.ods` and is not published.
+> ⚠️ Any per-group expectations from previous promotions must NOT be used when evaluating the current promotion (G1–G3), to avoid biasing the assessment. The `eval/G*/` directories are not published (RGPD).
 
 Each group develops an application focused on security, logging, and web interfaces using technologies such as PHP, Docker, NextCloud, and database integration. The assignment (énoncé) lives at https://github.com/fabrice1618/dashboard_PHP_rsyslog.
 
 ## Key Commands
 
-### Evaluation (eval.py — canonical)
+### Evaluation (eval.py — file-driven, re-runnable)
+Sources per group in `eval/G*/`:
+- `input.json` — students + participation % (filled by students)
+- `evaluation.md` — levels 0 / 0.25 / 0.5 / 0.75 / 1 in the `## Détail` tables (filled by the grader)
+
+Grille: `eval/bareme.json` (24 criteria, coefficients, parts /18 + /2). Template: `eval/evaluation.modele.md`.
+
 ```bash
-python3 eval.py seed                    # pre-load the grille (24 criteria, parts /18 + /2)
-python3 eval.py load roster.txt         # students, one per line "Group;Name"
-python3 eval.py charge                  # declared workload (%) per student (C9)
-python3 eval.py grade                   # enter levels 0 / 0.25 / 0.5 / 0.75 / 1
-python3 eval.py commits --repo <path>   # per-author commit report (Git traceability)
-python3 eval.py compute                 # preview group + individual grades
-python3 eval.py export                  # one Markdown per student in eval/out/
+python3 eval/eval.py compute             # preview group + individual grades (no write)
+python3 eval/eval.py write               # (re)write the computed block into each evaluation.md
+python3 eval/eval.py commits --repo <path>  # per-author commit report (Git traceability)
 ```
-`tools/cpi_eval.py` is now a helper only (roster from `groupes.ods`, calc check).
+`eval.py` is stateless (no SQLite, no interactive input). `write` is idempotent — re-run it
+any time after editing the levels; it refreshes the block between the
+`<!-- eval:calcul … -->` markers (group grade, part scores, individual grades).
 
 ### PHP Projects
 ```bash
@@ -38,22 +42,21 @@ vendor/bin/phpstan analyse # Static analysis (if configured)
 > Les descriptions détaillées par groupe de l'ancienne promotion (stacks techniques,
 > adresses IP de VM, identifiants, liens GitHub) ont été retirées de ce dépôt public
 > pour des raisons de confidentialité. La composition de la promotion en cours est lue
-> depuis `groupes.ods` (`python3 tools/cpi_eval.py roster`) et n'est pas publiée.
+> depuis `eval/G*/input.json` et n'est pas publiée.
 
 ### Evaluation System Architecture
 
-`eval.py` is the canonical tool (per-student grading, SQLite). It uses the following structure:
-- **evaluation**: Main evaluation metadata
-- **part**: Evaluation sections with max points (principal /18 = 90 %, advanced /2 = 10 %)
-- **question**: Individual criteria with coefficients (default 1)
-- **student**: Student roster with `group_name` and declared `charge` (%) for individualization
-- **note**: Grades (0, 0.25, 0.5, 0.75, 1) with optional comments
+`eval.py` reads three files and computes — no database, no hidden state:
+- **`eval/bareme.json`**: parts (principal /18 = 90 %, advanced /2 = 10 %) and criteria with coefficients
+- **`eval/G*/input.json`**: students + declared participation % (individualization)
+- **`eval/G*/evaluation.md`**: levels (0, 0.25, 0.5, 0.75, 1) read from the `## Détail` tables, plus the grader's comments
 
 Grade calculation:
-1. Weighted average per section based on question coefficients
-2. Section scores summed according to max points
+1. Weighted average per part based on criterion coefficients
+2. Part scores summed according to max points
 3. Group grade normalized to /20 and rounded to nearest 0.5
-4. Individual grade (C9) = group grade × (declared charge ÷ equal share), capped at 20
+4. Individual grade = group grade × (participation ÷ equal share), capped at 20
+5. `write` injects the result into each `evaluation.md` between the `<!-- eval:calcul … -->` markers
 
 ## Development Workflow
 

@@ -1,474 +1,253 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Application CLI pour gérer des évaluations et générer des rapports Markdown.
-Base SQLite : eval/evaluation.db
-Sources JSON : eval/bareme.json (grille) + eval/G*/input.json (étudiants)
+Calcul des notes d'évaluation, piloté par fichiers (ré-exécutable).
+
+Sources (par groupe, dans eval/G*/):
+  - input.json      : étudiants + participation (%), fourni par les étudiants
+  - evaluation.md   : niveaux (0 / 0,25 / 0,5 / 0,75 / 1) saisis par le correcteur
+                      dans les tableaux « ## Détail — … » (colonne Niveau)
+Grille:
+  - eval/bareme.json : parties, critères, coefficients, pondérations
+
+eval.py lit ces fichiers, calcule la note de groupe et les notes individuelles,
+puis (commande `write`) réécrit le bloc calculé délimité par les marqueurs
+<!-- eval:calcul début … --> … <!-- eval:calcul fin --> dans chaque evaluation.md.
+L'opération est idempotente : on peut la relancer autant de fois que voulu.
 
 Commandes:
-  - seed        : créer une évaluation depuis eval/bareme.json
-  - load        : charger les étudiants depuis eval/G*/input.json (nom + groupe + charge)
-  - grade       : saisir les notes (par étudiant)
-  - list        : lister les étudiants et l'état de complétude
-  - compute     : calculer les notes finales (aperçu)
-  - commits     : compte-rendu des commits Git par auteur (traçabilité)
-  - export      : générer les fichiers Markdown (un par étudiant)
-  - validate    : valider l'évaluation (puis export)
+  compute            Afficher les notes calculées (aperçu, sans écrire).
+  write              Réécrire le bloc calculé dans chaque eval/G*/evaluation.md.
+  commits --repo P   Compte-rendu des commits Git par auteur (traçabilité).
 """
 import argparse
 import glob
 import json
 import os
 import re
-import sqlite3
 import subprocess
 from datetime import datetime
 
-DB_DIR = os.path.join("eval")
-DB_PATH = os.path.join(DB_DIR, "evaluation.db")
-OUT_DIR = os.path.join("eval", "out")
-BAREME_PATH = os.path.join(DB_DIR, "bareme.json")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))      # …/eval
+BAREME_PATH = os.path.join(BASE_DIR, "bareme.json")
+OUT_DIR = os.path.join(BASE_DIR, "out")
+GROUPS_GLOB = os.path.join(BASE_DIR, "G*")
 
 VALID_VALUES = {0, 0.25, 0.5, 0.75, 1}
 
-def ensure_dirs():
-    os.makedirs(DB_DIR, exist_ok=True)
-    os.makedirs(OUT_DIR, exist_ok=True)
+MARK_BEGIN = ("<!-- eval:calcul début — généré par eval.py "
+              "(python3 eval/eval.py write) ; ne pas éditer à la main -->")
+MARK_END = "<!-- eval:calcul fin -->"
 
-def get_conn():
-    ensure_dirs()
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
 
-def init_db(conn: sqlite3.Connection):
-    cur = conn.cursor()
-    cur.executescript("""
-    PRAGMA foreign_keys = ON;
-
-    CREATE TABLE IF NOT EXISTS evaluation (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'draft'
-    );
-
-    CREATE TABLE IF NOT EXISTS part (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        evaluation_id INTEGER NOT NULL REFERENCES evaluation(id) ON DELETE CASCADE,
-        name TEXT NOT NULL,
-        max_points REAL NOT NULL CHECK (max_points > 0),
-        ord INTEGER NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS question (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        part_id INTEGER NOT NULL REFERENCES part(id) ON DELETE CASCADE,
-        name TEXT NOT NULL,
-        coefficient REAL NOT NULL CHECK (coefficient > 0),
-        ord INTEGER NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS student (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        evaluation_id INTEGER NOT NULL REFERENCES evaluation(id) ON DELETE CASCADE,
-        name TEXT NOT NULL,
-        group_name TEXT,
-        charge REAL
-    );
-
-    -- note.value in {0, 0.25, 0.5, 0.75, 1}
-    CREATE TABLE IF NOT EXISTS note (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        student_id INTEGER NOT NULL REFERENCES student(id) ON DELETE CASCADE,
-        question_id INTEGER NOT NULL REFERENCES question(id) ON DELETE CASCADE,
-        value REAL NOT NULL,
-        comment TEXT,
-        UNIQUE(student_id, question_id)
-    );
-    """)
-    conn.commit()
-    migrate(conn)
-
-def migrate(conn):
-    cur = conn.cursor()
-    cols = [r["name"] for r in cur.execute("PRAGMA table_info(student)")]
-    if "group_name" not in cols:
-        cur.execute("ALTER TABLE student ADD COLUMN group_name TEXT")
-    if "charge" not in cols:
-        cur.execute("ALTER TABLE student ADD COLUMN charge REAL")
-    conn.commit()
-
-def latest_eval_id(conn):
-    cur = conn.cursor()
-    cur.execute("SELECT id FROM evaluation ORDER BY id DESC LIMIT 1;")
-    row = cur.fetchone()
-    return row["id"] if row else None
-
+# --------------------------------------------------------------------------- #
+# Utilitaires
+# --------------------------------------------------------------------------- #
 def round_half_nearest(x: float) -> float:
-    # Arrondi au 0,5 le plus proche (cf. revue C5). 14,1 -> 14,0 ; 14,3 -> 14,5.
+    """Arrondi au 0,5 le plus proche. 14,1 -> 14,0 ; 14,3 -> 14,5."""
     return int(x * 2 + 0.5) / 2.0
 
-def cmd_seed(args):
-    if not os.path.isfile(BAREME_PATH):
-        print(f"Fichier introuvable : {BAREME_PATH}")
-        return
+def fr(x: float, dec: int = 2) -> str:
+    """Formatage français (virgule décimale)."""
+    return f"{x:.{dec}f}".replace(".", ",")
+
+def load_bareme():
     with open(BAREME_PATH, encoding="utf-8") as f:
-        bareme = json.load(f)
+        return json.load(f)
 
-    conn = get_conn()
-    init_db(conn)
-    cur = conn.cursor()
+def group_dirs():
+    return sorted(d for d in glob.glob(GROUPS_GLOB) if os.path.isdir(d))
 
-    title = (args.title or "Projet dashboard PHP/rsyslog").strip()
-    cur.execute("INSERT INTO evaluation(title, created_at, status) VALUES (?, ?, 'draft')",
-                (title, datetime.now().isoformat(timespec="seconds")))
-    eval_id = cur.lastrowid
 
-    n_q = 0
-    for part_ord, partie in enumerate(bareme["parties"], start=1):
-        cur.execute("INSERT INTO part(evaluation_id, name, max_points, ord) VALUES (?, ?, ?, ?)",
-                    (eval_id, partie["nom"], partie["points_max"], part_ord))
-        part_id = cur.lastrowid
-        for q_ord, critere in enumerate(partie["criteres"], start=1):
-            cur.execute("INSERT INTO question(part_id, name, coefficient, ord) VALUES (?, ?, ?, ?)",
-                        (part_id, critere["nom"], critere.get("coefficient", 1.0), q_ord))
-            n_q += 1
+# --------------------------------------------------------------------------- #
+# Lecture des sources
+# --------------------------------------------------------------------------- #
+def load_input(group_dir):
+    """input.json -> dict ; {} si absent."""
+    path = os.path.join(group_dir, "input.json")
+    if not os.path.isfile(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 
-    conn.commit()
-    print(f"Évaluation '{title}' créée (id={eval_id}) — {n_q} critères depuis {BAREME_PATH}.")
-    print("Suite : 'eval load', puis 'eval grade'.")
+def parse_niveaux(eval_md_path):
+    """Extrait {numero_critère(1..24) -> niveau(float)} des tableaux Détail.
 
-def cmd_load(args):
-    conn = get_conn()
-    init_db(conn)
-    cur = conn.cursor()
-    eval_id = latest_eval_id(conn)
-    if not eval_id:
-        print("Aucune évaluation. Lancez d'abord 'eval seed'.")
-        return
-
-    pattern = os.path.join(DB_DIR, "G*/input.json")
-    files = sorted(glob.glob(pattern))
-    if not files:
-        print(f"Aucun fichier trouvé : {pattern}")
-        return
-
-    inserted = 0
-    for path in files:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        group_name = data.get("groupe")
-        for e in data.get("etudiants", []):
-            name = f"{e['nom']} {e['prenom']}"
-            charge = e.get("participation_pct")
-            cur.execute(
-                "INSERT INTO student(evaluation_id, name, group_name, charge) VALUES (?, ?, ?, ?)",
-                (eval_id, name, group_name, charge),
-            )
-            inserted += 1
-    conn.commit()
-
-    # Contrôle : la somme des charges d'un groupe devrait valoir 100 %.
-    cur.execute("""SELECT group_name, SUM(charge) AS tot FROM student
-                   WHERE evaluation_id=? AND group_name IS NOT NULL AND charge IS NOT NULL
-                   GROUP BY group_name""", (eval_id,))
-    for r in cur.fetchall():
-        if r["tot"] is not None and abs(r["tot"] - 100.0) > 0.01:
-            print(f"  ⚠️ Groupe {r['group_name']} : somme des charges = {r['tot']:g}% (attendu 100%).")
-
-    print(f"{inserted} étudiant(s) importé(s) depuis {len(files)} fichier(s) input.json.")
-
-def fetch_structure(conn, eval_id):
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM part WHERE evaluation_id=? ORDER BY ord ASC", (eval_id,))
-    parts = cur.fetchall()
-    qs_by_part = {}
-    for p in parts:
-        cur.execute("SELECT * FROM question WHERE part_id=? ORDER BY ord ASC", (p["id"],))
-        qs_by_part[p["id"]] = cur.fetchall()
-    return parts, qs_by_part
-
-def list_students(conn, eval_id):
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM student WHERE evaluation_id=? ORDER BY id ASC", (eval_id,))
-    return cur.fetchall()
-
-def student_progress(conn, student_id):
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT COUNT(q.id) AS total_q
-        FROM question q
-        JOIN part p ON p.id = q.part_id
-        JOIN student s ON s.evaluation_id = p.evaluation_id
-        WHERE s.id = ?
-    """, (student_id,))
-    total_q = cur.fetchone()["total_q"]
-    cur.execute("SELECT COUNT(*) AS c FROM note WHERE student_id=?", (student_id,))
-    done = cur.fetchone()["c"]
-    return done, total_q
-
-def cmd_list(args):
-    conn = get_conn()
-    init_db(conn)
-    eval_id = latest_eval_id(conn)
-    if not eval_id:
-        print("Aucune évaluation.")
-        return
-    students = list_students(conn, eval_id)
-    print(f"Étudiants de l'évaluation {eval_id}:")
-    for s in students:
-        done, total = student_progress(conn, s["id"])
-        status = "complet" if done == total and total > 0 else f"{done}/{total}"
-        print(f"- [{status}] {s['name']} (id={s['id']})")
-
-def prompt_value():
-    while True:
-        raw = input("    Évaluation (0, 0.25, 0.5, 0.75, 1): ").strip().replace(",", ".")
-        try:
+    Lit les lignes « | <n> | <critère> | <niveau> | <commentaire> | » où la
+    1re cellule est un entier 1..24 ; cellule vide -> critère non noté (absent
+    du dict). Lève ValueError sur un niveau hors barème.
+    """
+    niveaux = {}
+    if not os.path.isfile(eval_md_path):
+        return niveaux
+    with open(eval_md_path, encoding="utf-8") as f:
+        for line in f:
+            s = line.strip()
+            if not s.startswith("|"):
+                continue
+            cells = [c.strip() for c in s.strip("|").split("|")]
+            if len(cells) < 3 or not cells[0].isdigit():
+                continue
+            num = int(cells[0])
+            if not (1 <= num <= 24):
+                continue
+            raw = cells[2].replace(",", ".").strip()
+            if raw == "":
+                continue
             val = float(raw)
-            if val in VALID_VALUES:
-                return val
-        except Exception:
-            pass
-        print("    Valeur invalide. Choisir parmi 0, 0.25, 0.5, 0.75, 1.")
+            if val not in VALID_VALUES:
+                raise ValueError(
+                    f"{eval_md_path}: niveau invalide '{cells[2]}' pour le "
+                    f"critère {num} (attendu 0 / 0,25 / 0,5 / 0,75 / 1).")
+            niveaux[num] = val
+    return niveaux
 
-def cmd_grade(args):
-    conn = get_conn()
-    init_db(conn)
-    cur = conn.cursor()
-    eval_id = latest_eval_id(conn)
-    if not eval_id:
-        print("Aucune évaluation.")
-        return
 
-    if args.student_id:
-        cur.execute("SELECT * FROM student WHERE id=? AND evaluation_id=?", (args.student_id, eval_id))
-        student = cur.fetchone()
-        if not student:
-            print(f"Étudiant id={args.student_id} introuvable.")
-            return
-    elif args.student_name:
-        cur.execute("SELECT * FROM student WHERE name=? AND evaluation_id=?", (args.student_name, eval_id))
-        student = cur.fetchone()
-        if not student:
-            print(f"Étudiant '{args.student_name}' introuvable.")
-            return
-    else:
-        studs = list_students(conn, eval_id)
-        if not studs:
-            print("Aucun étudiant. Utilisez 'eval load'.")
-            return
-        print("Choisissez un étudiant par id:")
-        for s in studs:
-            done, total = student_progress(conn, s["id"])
-            print(f"- id={s['id']} | {s['name']} [{done}/{total}]")
-        try:
-            sid = int(input("id: "))
-        except Exception:
-            print("Entrée invalide.")
-            return
-        cur.execute("SELECT * FROM student WHERE id=? AND evaluation_id=?", (sid, eval_id))
-        student = cur.fetchone()
-        if not student:
-            print("id invalide.")
-            return
-
-    parts, qs_by_part = fetch_structure(conn, eval_id)
-    if not parts:
-        print("Évaluation sans parties/questions. Lancez 'eval seed'.")
-        return
-
-    print(f"\nSaisie pour: {student['name']} (id={student['id']})\n")
-    for p in parts:
-        print(f"Partie: {p['name']} (/{p['max_points']})")
-        for q in qs_by_part[p["id"]]:
-            cur.execute("SELECT value, comment FROM note WHERE student_id=? AND question_id=?",
-                        (student["id"], q["id"]))
-            existing = cur.fetchone()
-            if existing:
-                print(f"  - {q['name']} [existant: {existing['value']} | {existing['comment'] or ''}]")
-                if input("    Modifier ? (o/N): ").strip().lower() != "o":
-                    continue
-            else:
-                print(f"  - {q['name']}")
-            val = prompt_value()
-            comment = input("    Commentaire (optionnel): ").strip()
-            if existing:
-                cur.execute("UPDATE note SET value=?, comment=? WHERE student_id=? AND question_id=?",
-                            (val, comment if comment else None, student["id"], q["id"]))
-            else:
-                cur.execute("INSERT INTO note(student_id, question_id, value, comment) VALUES (?, ?, ?, ?)",
-                            (student["id"], q["id"], val, comment if comment else None))
-            conn.commit()
-    print("\nSaisie terminée.")
-
-def compute_for_student(conn, student_id):
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT p.id, p.name, p.max_points
-        FROM part p
-        JOIN student s ON s.evaluation_id = p.evaluation_id
-        WHERE s.id=?
-        ORDER BY p.ord ASC
-    """, (student_id,))
-    parts = cur.fetchall()
-    if not parts:
-        return None
-
-    total_max = sum(p["max_points"] for p in parts)
+# --------------------------------------------------------------------------- #
+# Calcul
+# --------------------------------------------------------------------------- #
+def compute_group(bareme, niveaux):
+    """Retourne (note_arrondie, note_brute, [(nom_partie, score, points_max, poids_pct)])."""
+    part_scores = []
     total_score = 0.0
-    details = []
+    total_max = 0.0
+    for partie in bareme["parties"]:
+        crit = partie["criteres"]
+        coeff_sum = sum(c.get("coefficient", 1) for c in crit)
+        weighted = sum(niveaux.get(c["id"], 0.0) * c.get("coefficient", 1) for c in crit)
+        ratio = (weighted / coeff_sum) if coeff_sum else 0.0
+        score = partie["points_max"] * ratio
+        total_score += score
+        total_max += partie["points_max"]
+        part_scores.append((partie["nom"], score, partie["points_max"], partie.get("poids_pct")))
+    note_brut = (total_score / total_max) * 20 if total_max else 0.0
+    return round_half_nearest(note_brut), note_brut, part_scores
 
-    for p in parts:
-        cur.execute("SELECT id, name, coefficient FROM question WHERE part_id=? ORDER BY ord ASC", (p["id"],))
-        qs = cur.fetchall()
-        if not qs:
-            details.append({"part": p, "part_score": 0.0, "q": []})
-            continue
-        coeff_sum = sum(q["coefficient"] for q in qs)
-        weighted = 0.0
-        q_details = []
-        for q in qs:
-            cur.execute("SELECT value, comment FROM note WHERE student_id=? AND question_id=?",
-                        (student_id, q["id"]))
-            n = cur.fetchone()
-            value = n["value"] if n else 0.0
-            comment = n["comment"] if n else None
-            weighted += value * q["coefficient"]
-            q_details.append({"q": q, "value": value, "comment": comment})
-        part_ratio = (weighted / coeff_sum) if coeff_sum > 0 else 0.0
-        part_score = p["max_points"] * part_ratio
-        total_score += part_score
-        details.append({"part": p, "part_score": part_score, "q": q_details})
-
-    final_raw_20 = (total_score / total_max) * 20 if total_max > 0 else 0.0
-    return round_half_nearest(final_raw_20), final_raw_20, details
-
-def modulation_for_student(conn, eval_id, student):
-    grp = student["group_name"]
-    charge = student["charge"]
-    if grp is None or charge is None:
-        return 1.0, None, charge
-    cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) AS c FROM student WHERE evaluation_id=? AND group_name=?",
-                (eval_id, grp))
-    n = cur.fetchone()["c"]
-    if n <= 0:
-        return 1.0, None, charge
+def individual_rows(group_note, students):
+    """Retourne [(nom, participation, note_individuelle)] pour le bloc calculé."""
+    n = len(students)
+    if n == 0:
+        return []
     equal = 100.0 / n
-    factor = (charge / equal) if equal > 0 else 1.0
-    return factor, equal, charge
+    rows = []
+    for s in students:
+        name = f"{s.get('nom', '')} {s.get('prenom', '')}".strip()
+        part = s.get("participation_pct")
+        if part is None:
+            indiv = group_note
+            rows.append((name, None, indiv))
+        else:
+            factor = (part / equal) if equal else 1.0
+            indiv = min(20.0, round_half_nearest(group_note * factor))
+            rows.append((name, part, indiv))
+    return rows
 
-def individual_note(final_r, factor):
-    return min(20.0, round_half_nearest(final_r * factor))
+def count_ungraded(bareme, niveaux):
+    ids = [c["id"] for p in bareme["parties"] for c in p["criteres"]]
+    return sum(1 for i in ids if i not in niveaux)
+
+
+# --------------------------------------------------------------------------- #
+# Rendu / écriture du bloc calculé
+# --------------------------------------------------------------------------- #
+def render_block(note, note_brut, part_scores, indiv_rows):
+    L = [MARK_BEGIN, ""]
+    L.append(f"## Note de groupe : **{fr(note, 1)} / 20** _(brut {fr(note_brut, 2)})_")
+    L.append("")
+    L.append("| Partie | Score | Poids |")
+    L.append("|---|:--:|:--:|")
+    for nom, score, pmax, poids in part_scores:
+        poids_str = f"{poids} %" if poids is not None else ""
+        L.append(f"| {nom} | {fr(score, 2)} / {fr(pmax, 0)} | {poids_str} |")
+    L.append("")
+    L.append("### Notes individuelles (participation)")
+    L.append("")
+    L.append("| Étudiant | Participation | Note individuelle |")
+    L.append("|---|:--:|:--:|")
+    if indiv_rows:
+        for name, part, indiv in indiv_rows:
+            part_str = f"{fr(part, 0)} %" if part is not None else "—"
+            L.append(f"| {name} | {part_str} | {fr(indiv, 1)} / 20 |")
+    else:
+        L.append("| _(aucun étudiant dans input.json)_ | | |")
+    L.append("")
+    L.append(MARK_END)
+    return "\n".join(L)
+
+def write_block(eval_md_path, block):
+    """Insère ou remplace le bloc calculé entre les marqueurs (idempotent)."""
+    with open(eval_md_path, encoding="utf-8") as f:
+        content = f.read()
+
+    if MARK_BEGIN in content and MARK_END in content:
+        pre = content[:content.index(MARK_BEGIN)]
+        post = content[content.index(MARK_END) + len(MARK_END):]
+        new = pre + block + post
+    else:
+        # Pas de marqueurs : insérer après le titre H1.
+        lines = content.splitlines(keepends=True)
+        out, inserted = [], False
+        for ln in lines:
+            out.append(ln)
+            if not inserted and ln.lstrip().startswith("# "):
+                out.append("\n" + block + "\n")
+                inserted = True
+        if not inserted:
+            out.insert(0, block + "\n\n")
+        new = "".join(out)
+
+    with open(eval_md_path, "w", encoding="utf-8") as f:
+        f.write(new)
+
+
+# --------------------------------------------------------------------------- #
+# Commandes
+# --------------------------------------------------------------------------- #
+def iter_groups(bareme):
+    """Génère (label, group_dir, data, niveaux, note, note_brut, part_scores, indiv_rows, ungraded)."""
+    for group_dir in group_dirs():
+        label = os.path.basename(group_dir)
+        data = load_input(group_dir)
+        eval_md = os.path.join(group_dir, "evaluation.md")
+        niveaux = parse_niveaux(eval_md)
+        note, note_brut, part_scores = compute_group(bareme, niveaux)
+        indiv = individual_rows(note, data.get("etudiants", []))
+        ungraded = count_ungraded(bareme, niveaux)
+        yield label, group_dir, data, niveaux, note, note_brut, part_scores, indiv, ungraded
 
 def cmd_compute(args):
-    conn = get_conn()
-    init_db(conn)
-    eval_id = latest_eval_id(conn)
-    if not eval_id:
-        print("Aucune évaluation.")
-        return
-    students = list_students(conn, eval_id)
-    if not students:
-        print("Aucun étudiant.")
-        return
-    for s in students:
-        comp = compute_for_student(conn, s["id"])
-        if not comp:
+    bareme = load_bareme()
+    for (label, _gd, _data, _niv, note, note_brut, part_scores, indiv,
+         ungraded) in iter_groups(bareme):
+        print(f"\n{label} : {fr(note, 1)}/20 (brut {fr(note_brut, 2)})"
+              + (f"  ⚠️ {ungraded} critère(s) non noté(s)" if ungraded else ""))
+        for nom, score, pmax, _poids in part_scores:
+            print(f"  - {nom} : {fr(score, 2)} / {fr(pmax, 0)}")
+        for name, part, ind in indiv:
+            part_str = f"{fr(part, 0)}%" if part is not None else "—"
+            print(f"    · {name} : {fr(ind, 1)}/20 (participation {part_str})")
+    return 0
+
+def cmd_write(args):
+    bareme = load_bareme()
+    written = 0
+    for (label, group_dir, _data, _niv, note, note_brut, part_scores, indiv,
+         ungraded) in iter_groups(bareme):
+        eval_md = os.path.join(group_dir, "evaluation.md")
+        if not os.path.isfile(eval_md):
+            print(f"  ! {label} : evaluation.md absent, ignoré.")
             continue
-        final_r, final_b, _ = comp
-        factor, equal, charge = modulation_for_student(conn, eval_id, s)
-        done, total = student_progress(conn, s["id"])
-        status = "complet" if done == total and total > 0 else f"{done}/{total}"
-        if factor != 1.0:
-            indiv = individual_note(final_r, factor)
-            print(f"- {s['name']}: groupe {final_r:.1f}/20 × charge {charge:g}% "
-                  f"(×{factor:.2f}) = {indiv:.1f}/20 [{status}]")
-        else:
-            print(f"- {s['name']}: {final_r:.1f}/20 (brut {final_b:.2f}) [{status}]")
+        block = render_block(note, note_brut, part_scores, indiv)
+        write_block(eval_md, block)
+        written += 1
+        warn = f"  ⚠️ {ungraded} critère(s) non noté(s)" if ungraded else ""
+        print(f"  + {label} : {fr(note, 1)}/20 écrit dans evaluation.md{warn}")
+    print(f"{written} fichier(s) evaluation.md mis à jour.")
+    return 0
 
 def sanitize_filename(name: str) -> str:
     bad = '<>:"/\\|?*'
     return "".join(c if c not in bad else "_" for c in name).replace(" ", "_")
-
-def generate_markdown(conn, student, title, final_r, final_b, details, factor, equal, charge, indiv):
-    lines = []
-    lines.append(f"# {title} - {student['name']}")
-    lines.append("")
-    lines.append(f"- Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    if student["group_name"]:
-        lines.append(f"- Groupe: {student['group_name']}")
-    lines.append(f"- Note de groupe (livrables): {final_r:.1f}/20 (brut {final_b:.2f})")
-    if charge is not None and factor != 1.0:
-        lines.append(f"- Charge déclarée: {charge:g}% (part égale {equal:g}% → facteur ×{factor:.2f})")
-        lines.append(f"- **Note individuelle: {indiv:.1f}/20**")
-    else:
-        lines.append(f"- **Note finale: {final_r:.1f}/20**")
-    lines.append("")
-    for d in details:
-        p = d["part"]
-        lines.append(f"## Partie: {p['name']} (/{p['max_points']})")
-        lines.append("")
-        if not d["q"]:
-            lines.append("_Aucune question définie pour cette partie._")
-            lines.append("")
-            continue
-        lines.append(f"Score de la partie: {d['part_score']:.2f} / {p['max_points']}")
-        lines.append("")
-        lines.append("| Question | Évaluation | Commentaire |")
-        lines.append("|---|---:|---|")
-        for qd in d["q"]:
-            com = qd["comment"] or ""
-            lines.append(f"| {qd['q']['name']} | {qd['value']:.2f} | {com} |")
-        lines.append("")
-    lines.append("---")
-    lines.append("_Document généré automatiquement._")
-    return "\n".join(lines)
-
-def cmd_export(args):
-    conn = get_conn()
-    init_db(conn)
-    cur = conn.cursor()
-    eval_id = latest_eval_id(conn)
-    if not eval_id:
-        print("Aucune évaluation.")
-        return
-    cur.execute("SELECT * FROM evaluation WHERE id=?", (eval_id,))
-    eval_row = cur.fetchone()
-    students = list_students(conn, eval_id)
-    if not students:
-        print("Aucun étudiant.")
-        return
-    count = 0
-    for s in students:
-        comp = compute_for_student(conn, s["id"])
-        if not comp:
-            continue
-        final_r, final_b, details = comp
-        factor, equal, charge = modulation_for_student(conn, eval_id, s)
-        indiv = individual_note(final_r, factor)
-        md = generate_markdown(conn, s, eval_row["title"], final_r, final_b, details,
-                               factor, equal, charge, indiv)
-        path = os.path.join(OUT_DIR, f"{sanitize_filename(s['name'])}.md")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(md)
-        count += 1
-    print(f"{count} fichier(s) Markdown généré(s) dans {OUT_DIR}/")
-
-def cmd_validate(args):
-    conn = get_conn()
-    init_db(conn)
-    cur = conn.cursor()
-    eval_id = latest_eval_id(conn)
-    if not eval_id:
-        print("Aucune évaluation.")
-        return
-    cur.execute("UPDATE evaluation SET status='validated' WHERE id=?", (eval_id,))
-    conn.commit()
-    print(f"Évaluation {eval_id} validée. Génération des exports...")
-    cmd_export(args)
 
 def cmd_commits(args):
     repo = args.repo
@@ -476,8 +255,8 @@ def cmd_commits(args):
                             capture_output=True, text=True)
     if inside.returncode != 0 or inside.stdout.strip() != "true":
         print(f"Pas un dépôt Git valide : {repo}")
-        return
-    ensure_dirs()
+        return 1
+    os.makedirs(OUT_DIR, exist_ok=True)
     sl = subprocess.run(["git", "-C", repo, "shortlog", "-sne", "--all", "--no-merges"],
                         capture_output=True, text=True).stdout.strip().splitlines()
 
@@ -518,38 +297,21 @@ def cmd_commits(args):
     with open(out, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
     print(f"Compte-rendu écrit dans {out} ({total} commits, {len(authors)} auteur(s)).")
+    return 0
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="eval", description="Gestion d'évaluations (CLI)")
+    p = argparse.ArgumentParser(prog="eval", description="Calcul des notes (piloté par fichiers)")
     sub = p.add_subparsers(dest="cmd")
 
-    sp = sub.add_parser("seed", help="Créer une évaluation depuis eval/bareme.json")
-    sp.add_argument("--title", help="Titre de l'évaluation")
-    sp.set_defaults(func=cmd_seed)
-
-    sp = sub.add_parser("load", help="Charger les étudiants depuis eval/G*/input.json")
-    sp.set_defaults(func=cmd_load)
-
-    sp = sub.add_parser("list", help="Lister les étudiants et l'état des notes")
-    sp.set_defaults(func=cmd_list)
-
-    sp = sub.add_parser("grade", help="Saisir les évaluations d'un étudiant")
-    sp.add_argument("--student-id", type=int, help="ID de l'étudiant")
-    sp.add_argument("--student-name", help="Nom exact de l'étudiant")
-    sp.set_defaults(func=cmd_grade)
-
-    sp = sub.add_parser("compute", help="Afficher les notes finales calculées")
+    sp = sub.add_parser("compute", help="Afficher les notes calculées (aperçu)")
     sp.set_defaults(func=cmd_compute)
+
+    sp = sub.add_parser("write", help="Réécrire le bloc calculé dans chaque evaluation.md")
+    sp.set_defaults(func=cmd_write)
 
     sp = sub.add_parser("commits", help="Compte-rendu des commits Git par auteur")
     sp.add_argument("--repo", required=True, help="Chemin du dépôt Git de l'étudiant/groupe")
     sp.set_defaults(func=cmd_commits)
-
-    sp = sub.add_parser("export", help="Générer les fichiers Markdown par étudiant")
-    sp.set_defaults(func=cmd_export)
-
-    sp = sub.add_parser("validate", help="Valider l'évaluation et exporter")
-    sp.set_defaults(func=cmd_validate)
 
     return p
 
@@ -559,7 +321,7 @@ def main():
     if not hasattr(args, "func"):
         parser.print_help()
         return
-    args.func(args)
+    raise SystemExit(args.func(args))
 
 if __name__ == "__main__":
     main()

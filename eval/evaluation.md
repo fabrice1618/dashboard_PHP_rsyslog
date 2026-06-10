@@ -2,17 +2,17 @@
 
 ## Structure d'évaluation
 
-- Il existe un dossier par groupe d'étudiants. La liste des groupes et leur composition fait foi dans `groupes.ods` (commande `python3 tools/cpi_eval.py roster`). Promotion en cours : G1, G2, G3.
-- **Outil canonique**: La saisie et le calcul sont réalisés avec `eval.py` (notation **par étudiant**, base SQLite). `tools/cpi_eval.py` est désormais un simple utilitaire (lecture du roster, vérification de calcul).
+- Il existe un dossier par groupe d'étudiants (`eval/G1`, `eval/G2`, `eval/G3`). La composition de chaque groupe fait foi dans son `eval/G*/input.json` (étudiants + participation %, renseigné par les étudiants). Promotion en cours : G1, G2, G3.
+- **Outil**: Le calcul est réalisé par `eval.py`, piloté par fichiers (sans base de données). Sources : `eval/bareme.json` (grille), `eval/G*/input.json` (étudiants), `eval/G*/evaluation.md` (niveaux saisis par le correcteur). Modèle de compte rendu : `eval/evaluation.modele.md`.
 - **Procédure**: Traiter chaque projet indépendamment. Réinitialiser l'analyse entre chaque projet.
-- **Notation**: Pour chaque critère, attribuer un niveau, enregistré dans `eval.py` sur l'échelle **0 / 0,25 / 0,5 / 0,75 / 1** (homothétique aux 5 niveaux ci-dessous : 0↔0, 1↔0,25, 2↔0,5, 3↔0,75, 4↔1) :
+- **Notation**: Pour chaque critère, saisir un niveau dans la colonne **Niveau** des tableaux `## Détail` de `evaluation.md`, sur l'échelle **0 / 0,25 / 0,5 / 0,75 / 1** (homothétique aux 5 niveaux ci-dessous : 0↔0, 1↔0,25, 2↔0,5, 3↔0,75, 4↔1) :
     - **0** : Non réalisé, non traité, inexistant
     - **1** : Abordé superficiellement, incomplet, manque de rigueur
     - **2** : Partiellement réalisé, mélange d'éléments corrects et incorrects
     - **3** : Bien réalisé avec quelques erreurs mineures ou améliorations possibles
     - **4** : Très bien réalisé, complet, conforme aux attentes
-- **Livrable**: `python3 eval.py export` génère un fichier Markdown par étudiant dans `eval/out/`.
-- **Note finale**: Calculée par `eval.py` (`compute` / `export`), jamais « à la main ». Voir « Calcul de la note finale ».
+- **Livrable**: chaque `eval/G*/evaluation.md` est le compte rendu du groupe ; `python3 eval/eval.py write` y insère la note calculée (bloc entre les marqueurs `<!-- eval:calcul … -->`).
+- **Note finale**: Calculée par `eval.py` (`compute` / `write`), jamais « à la main ». Ré-exécutable à volonté. Voir « Calcul de la note finale ».
 
 ## Critères d'évaluation détaillés
 
@@ -269,55 +269,52 @@
 
 ## Calcul de la note finale
 
-Le calcul est entièrement délégué à `eval.py` (par étudiant, base SQLite) — **aucune arithmétique manuelle**.
+Le calcul est entièrement délégué à `eval.py`, à partir des fichiers — **aucune arithmétique manuelle**.
 
-- Chaque critère reçoit un niveau sur l'échelle 0 / 0,25 / 0,5 / 0,75 / 1 et un **coefficient** (défaut 1, modifiable lors de la saisie via `eval.py config`).
+- Chaque critère reçoit un niveau sur l'échelle 0 / 0,25 / 0,5 / 0,75 / 1 (saisi dans `evaluation.md`) et un **coefficient** défini dans `eval/bareme.json`.
 - La grille est répartie en **deux parties pondérées** :
     - **Critères principaux** (1-21) → 90 % de la note, partie notée `/18`.
     - **Qualité logicielle avancée** (22-24 : POO, PHPStan, tests unitaires) → 10 % de la note, partie notée `/2`.
 - Pour chaque partie : moyenne des niveaux **pondérée par les coefficients**, multipliée par le maximum de la partie.
 - **Note de groupe /20** = somme des deux parties, arrondie au **0,5 le plus proche** (`round_half_nearest`).
-- **Note individuelle** (C9) = note de groupe × (charge déclarée ÷ part égale du groupe), **plafonnée à 20** puis arrondie au 0,5. Une contribution égale (charge = 100 % ÷ effectif) laisse la note inchangée. La charge se saisit avec `eval.py charge` ; la traçabilité Git s'obtient avec `eval.py commits --repo <dépôt>`.
+- **Note individuelle** = note de groupe × (participation déclarée ÷ part égale du groupe), **plafonnée à 20** puis arrondie au 0,5. Une contribution égale (participation = 100 % ÷ effectif) laisse la note inchangée. La participation est lue dans `input.json` ; la traçabilité Git s'obtient avec `eval.py commits --repo <dépôt>`.
 
 ### Déroulé type
 
 ```bash
-python3 eval.py seed                      # crée la grille (24 critères, parties /18 + /2)
-python3 eval.py load roster.txt           # étudiants, 1 par ligne au format "Groupe;Nom"
-python3 eval.py charge                     # charge déclarative (%) par étudiant
-python3 eval.py grade                      # saisie des niveaux 0 / 0,25 / 0,5 / 0,75 / 1
-python3 eval.py commits --repo <dépôt>     # compte-rendu des commits par étudiant
-python3 eval.py compute                    # aperçu des notes (groupe + individuelle)
-python3 eval.py export                     # un Markdown par étudiant dans eval/out/
+# 1. Les étudiants renseignent eval/G*/input.json (membres + participation %).
+# 2. Le correcteur saisit les niveaux dans la colonne Niveau de eval/G*/evaluation.md.
+python3 eval/eval.py commits --repo <dépôt>   # compte-rendu des commits par auteur
+python3 eval/eval.py compute                  # aperçu des notes (groupe + individuelle)
+python3 eval/eval.py write                    # insère la note calculée dans chaque evaluation.md
 ```
+
+`write` est **idempotent** : on peut le relancer après chaque modification des niveaux ; il
+rafraîchit uniquement le bloc entre les marqueurs `<!-- eval:calcul … -->`.
 
 ## Format de sortie
 
-`python3 eval.py export` produit un fichier Markdown par étudiant dans `eval/out/<Nom>.md` :
+Le compte rendu est `eval/G*/evaluation.md` lui-même. `python3 eval/eval.py write` y (re)génère le
+bloc calculé :
 
 ```markdown
-# <Titre de l'évaluation> - <Nom de l'étudiant>
+<!-- eval:calcul début … -->
 
-- Date: <horodatage>
-- Groupe: <G…>
-- Note de groupe (livrables): <X>/20 (brut <X.XX>)
-- Charge déclarée: <c>% (part égale <p>% → facteur ×<f>)
-- **Note individuelle: <Y>/20**
+## Note de groupe : **<X,X> / 20** _(brut <X,XX>)_
 
-## Partie: Critères principaux (/18)
+| Partie | Score | Poids |
+|---|:--:|:--:|
+| Critères principaux | <s> / 18 | 90 % |
+| Qualité logicielle avancée | <s> / 2 | 10 % |
 
-Score de la partie: <s> / 18
+### Notes individuelles (participation)
 
-| Question | Évaluation | Commentaire |
-|---|---:|---|
-| 1. Analyse des recommandations ANSSI | 0.75 | … |
-| … | … | … |
+| Étudiant | Participation | Note individuelle |
+|---|:--:|:--:|
+| <NOM Prénom> | <p> % | <Y,Y> / 20 |
 
-## Partie: Qualité logicielle avancée (10 %) (/2)
-
-Score de la partie: <s> / 2
-
-| … | … | … |
+<!-- eval:calcul fin -->
 ```
 
-> Sans charge saisie, la ligne « Note individuelle » est remplacée par « **Note finale** » (= note de groupe, non modulée).
+> Le reste du fichier (synthèse, tableaux `## Détail` avec niveaux et commentaires, traçabilité
+> Git, points forts / axes) est rédigé par le correcteur et n'est jamais modifié par `eval.py`.

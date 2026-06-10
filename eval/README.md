@@ -1,48 +1,59 @@
 # Évaluation des projets étudiants — Mode d'emploi
 
 Ce dossier contient le dispositif d'évaluation des projets « dashboard PHP / rsyslog ».
-Ce README est la **procédure opératoire complète** : de la mise en place jusqu'à la
-remise d'un bulletin de note par étudiant.
+Ce README est la **procédure opératoire complète**, de la mise en place jusqu'à la note
+inscrite dans le compte rendu de chaque groupe.
 
 - **Énoncé du projet évalué** : <https://github.com/fabrice1618/dashboard_PHP_rsyslog>
-- **Promotion en cours** : G1, G2, G3 (composition dans `groupes.ods`, non publiée).
+- **Promotion en cours** : G1, G2, G3.
 
 > ⚠️ **Confidentialité (RGPD).** Les données nominatives ne sont **jamais** publiées :
-> `groupes.ods`, les dossiers `G1/ G2/ G3/`, la base `evaluation.db`, le dossier `out/`
-> et `roster.txt` sont exclus par `.gitignore`. Ne jamais les committer.
+> les dossiers `G1/ G2/ G3/` et le dossier `out/` sont exclus par `.gitignore`.
+> Ne jamais les committer.
 
 ---
 
 ## 1. Vue d'ensemble
 
-L'évaluation s'appuie sur **une grille canonique de 24 critères** répartie en deux parties
-pondérées, et sur un outil unique, `eval.py`, qui réalise **la saisie et tout le calcul**
-(base SQLite locale `eval/evaluation.db`). Aucune arithmétique n'est faite à la main.
+L'évaluation s'appuie sur **une grille de 24 critères** répartie en deux parties pondérées,
+et sur `eval.py`, **piloté par fichiers** : il lit la grille, la composition des groupes et
+les niveaux saisis, calcule la note, et l'écrit dans le compte rendu. **Aucune base de
+données, aucune saisie interactive** : tout est dans des fichiers, et le calcul est
+**ré-exécutable** autant de fois que voulu.
 
 | Partie | Critères | Poids | Notée sur |
 |---|:--:|:--:|:--:|
 | Critères principaux | 1 → 21 | 90 % | /18 |
 | Qualité logicielle avancée (POO, PHPStan, tests unitaires) | 22 → 24 | 10 % | /2 |
 
-- La notation se fait **par étudiant**, ce qui permet d'individualiser la note de groupe
-  selon la charge déclarée (critère C9).
-- Le barème détaillé de chaque critère (niveaux 0 à 4) est décrit dans **`evaluation.md`**.
-- Le contexte et les décisions ayant conduit à ce dispositif sont consignés dans
-  **`REVUE_EVALUATION.md`**.
+La notation se fait **par groupe** ; la note de groupe est ensuite individualisée selon
+la **participation déclarée** de chaque étudiant (lue dans `input.json`).
+
+### Les trois fichiers du calcul
+
+| Fichier | Rempli par | Rôle |
+|---|---|---|
+| `eval/bareme.json` | enseignant | Grille : parties, critères, **coefficients**, pondérations. |
+| `eval/G*/input.json` | **étudiants** | Membres du groupe + **participation %** + dépôt. |
+| `eval/G*/evaluation.md` | **correcteur** | **Niveaux** (0 → 1) et commentaires par critère. |
+
+`eval.py compute` lit ces trois fichiers et affiche les notes ; `eval.py write` insère la
+note calculée dans chaque `evaluation.md`, dans le bloc délimité par les marqueurs
+`<!-- eval:calcul … -->`.
 
 ### Fichiers du dossier
 
 | Fichier | Rôle |
 |---|---|
-| `eval.py` | **Outil canonique** : saisie + calcul + export (SQLite). |
-| `evaluation.md` | Barème détaillé des 24 critères (référence de notation). |
-| `REVUE_EVALUATION.md` | Audit du dispositif et décisions pédagogiques (C1–C9). |
+| `eval.py` | Calcul piloté par fichiers : `compute` / `write` / `commits`. |
+| `bareme.json` | Grille des 24 critères (coefficients, parties /18 + /2). |
+| `evaluation.md` | Barème détaillé, niveau par niveau (référence de notation). |
+| `evaluation.modele.md` | Modèle vierge de compte rendu par groupe. |
+| `input.json.example` | Modèle du fichier que les étudiants remplissent. |
+| `REVUE_EVALUATION.md` | Audit historique du dispositif et décisions pédagogiques. |
 | `CLAUDE.md` | Consignes pour l'assistant lors de l'évaluation. |
-| `tools/cpi_eval.py` | Utilitaire d'appoint (lecture du roster, vérification de calcul). |
-| `groupes.ods` | **Source de vérité** de la composition des groupes (non publiée). |
-| `G1/ G2/ G3/` | Rendus des groupes (non publiés). |
-| `out/` | Bulletins Markdown générés, un par étudiant (non publié). |
-| `evaluation.db` | Base SQLite produite par `eval.py` (non publiée). |
+| `G1/ G2/ G3/` | Par groupe : `input.json` + `evaluation.md` (non publiés). |
+| `out/` | Rapports de commits générés (non publié). |
 
 ---
 
@@ -50,15 +61,15 @@ pondérées, et sur un outil unique, `eval.py`, qui réalise **la saisie et tout
 
 - **Python 3.8+** (bibliothèque standard uniquement, aucune dépendance à installer).
 - **Git** disponible dans le `PATH` (pour le compte-rendu des commits).
-- Toutes les commandes ci-dessous se lancent **depuis la racine du dépôt**
-  (`/home/fab/cours/dashboard_PHP_rsyslog`), car `eval.py` écrit dans `eval/evaluation.db`
-  et `eval/out/` en chemins relatifs.
+- `eval.py` résout ses chemins par rapport à son propre emplacement : il peut être lancé
+  **depuis n'importe quel répertoire** (`python3 eval/eval.py …` depuis la racine du dépôt).
 
 ---
 
 ## 3. Échelle de notation
 
-Pour chaque critère, attribuer un **niveau** sur l'échelle **0 / 0,25 / 0,5 / 0,75 / 1**,
+Pour chaque critère, saisir un **niveau** dans la colonne **Niveau** des tableaux
+`## Détail` de `evaluation.md`, sur l'échelle **0 / 0,25 / 0,5 / 0,75 / 1**,
 homothétique aux 5 niveaux du barème de `evaluation.md` :
 
 | Niveau `evaluation.md` | Valeur saisie | Signification |
@@ -69,8 +80,7 @@ homothétique aux 5 niveaux du barème de `evaluation.md` :
 | 3 | **0,75** | Bien réalisé, erreurs mineures |
 | 4 | **1** | Très bien réalisé, complet, conforme |
 
-Chaque critère porte aussi un **coefficient** (défaut **1**), modifiable lors de la
-création manuelle d'une évaluation (`eval.py config`).
+Chaque critère porte aussi un **coefficient**, défini dans `eval/bareme.json`.
 
 ---
 
@@ -78,111 +88,46 @@ création manuelle d'une évaluation (`eval.py config`).
 
 > Traiter **chaque projet indépendamment** et réinitialiser l'analyse entre deux projets.
 
-### Étape 0 — Réunir les informations des étudiants et préparer le roster
+### Étape 0 — Les étudiants renseignent `input.json`
 
-Cette étape **conditionne tout le pipeline** : elle rassemble ce que les étudiants
-doivent fournir et en tire le fichier `roster.txt` qui sert de point d'entrée à
-`eval.py`. Sans ces éléments, certains critères ne peuvent pas être notés et
-l'individualisation de la note (C9) est impossible.
+Chaque groupe remplit son `eval/G*/input.json` (modèle : `eval/input.json.example`) :
 
-**Informations initiales à obtenir des étudiants avant de commencer :**
+- **composition du groupe** (nom + prénom de chaque membre) ;
+- **participation (%)** de chaque membre — la somme doit faire **100 %** ;
+- **dépôt GitHub** du projet ;
+- chemins des **livrables** (analyse ANSSI, UML, sitemap, mockup, etc.).
 
-| Information attendue | Pourquoi elle est nécessaire | Alimente |
-|---|---|---|
-| **Composition exacte du groupe** (nom + prénom de chaque membre) | Identifier chaque étudiant et produire un bulletin nominatif par personne | roster (étapes 1-2), bulletins |
-| **Dépôt Git du projet** (URL + accès en lecture) | Source de tous les livrables écrits **et** de l'historique des commits | critère 20 — traçabilité (étape 5), colonne `repository` de `groupes.ods` |
-| **Tableau de répartition de la charge** (% par étudiant, total du groupe = 100 %) | Moduler la note de groupe selon la contribution déclarée de chacun | critère 9 — planification + charge déclarée (étape 3) |
+Ces éléments sont des **livrables exigés par l'énoncé**. La participation sert à
+individualiser la note (sans elle, chaque étudiant reçoit la note de groupe).
 
-> Ces trois éléments sont des **livrables exigés par l'énoncé** (répartition des tâches
-> par personne, dépôt Git, traçabilité individuelle). À réception, consigner la
-> composition et le dépôt de chaque groupe dans `groupes.ods` (la colonne `repository`
-> est vide tant qu'aucun dépôt n'est rattaché).
+### Étape 1 — Le correcteur saisit les niveaux dans `evaluation.md`
 
-Une fois ces informations réunies, créer le fichier `roster.txt` (gitignoré),
-**une ligne par étudiant** au format `Groupe;Nom` :
+Partir du modèle `eval/evaluation.modele.md` (déjà en place dans chaque dossier de groupe).
+Pour chaque critère, remplir la colonne **Niveau** (0 / 0,25 / 0,5 / 0,75 / 1) et le
+**commentaire** dans les tableaux `## Détail`. Rédiger aussi la synthèse, la traçabilité
+Git et les points forts / axes d'amélioration.
 
-```text
-G1;NOM Prénom
-G2;NOM Prénom
-G3;NOM Prénom
-```
+> Ne pas toucher au bloc entre les marqueurs `<!-- eval:calcul … -->` : il est généré.
 
-La composition exacte se lit depuis `groupes.ods` :
-
-```bash
-python3 eval/tools/cpi_eval.py roster
-```
-
-Ce roster est le **point d'entrée** du pipeline : il fixe la liste des étudiants
-chargés à l'étape 2 et, par conséquent, le nombre de bulletins produits.
-
-### Étape 1 — Créer la grille
-
-```bash
-python3 eval/eval.py seed
-```
-
-Crée une évaluation pré-remplie avec les 24 critères (coef 1, parties /18 + /2).
-Option `--title "…"` pour personnaliser le titre.
-
-### Étape 2 — Charger les étudiants
-
-```bash
-python3 eval/eval.py load roster.txt
-```
-
-Format accepté par ligne : `Groupe;Nom`, `Groupe<TAB>Nom`, ou simplement `Nom`.
-
-### Étape 3 — Saisir la charge déclarée (individualisation C9)
-
-```bash
-python3 eval/eval.py charge
-```
-
-Saisir, pour chaque étudiant, sa **charge déclarée en %** (issue du tableau de
-répartition exigé par l'énoncé). L'outil **avertit** si la somme des charges d'un
-groupe ne fait pas 100 %. Laisser vide pour ne pas modifier.
-
-> Étape facultative : sans charge saisie, la note individuelle = note de groupe.
-
-### Étape 4 — Noter chaque étudiant
-
-```bash
-python3 eval/eval.py grade                       # choix interactif de l'étudiant
-python3 eval/eval.py grade --student-id 3        # ciblage par id
-python3 eval/eval.py grade --student-name "BESSAA Badr"
-```
-
-Pour chaque critère : saisir le niveau (0 / 0,25 / 0,5 / 0,75 / 1) et un commentaire
-facultatif. Une note déjà saisie peut être révisée (`Modifier ? (o/N)`).
-Suivre la progression avec :
-
-```bash
-python3 eval/eval.py list
-```
-
-### Étape 5 — Traçabilité des commits (critère 20)
+### Étape 2 — Traçabilité des commits (critère 20)
 
 ```bash
 python3 eval/eval.py commits --repo <chemin_du_depot_du_groupe>
 ```
 
-Produit `eval/out/commits_<dépôt>.md` : nombre de commits et part par auteur
-(hors merges), puis le détail des commits par auteur. Sert à objectiver la
-contribution individuelle et à noter le critère 20.
+Produit `eval/out/commits_<dépôt>.md` : nombre de commits et part par auteur (hors merges),
+puis le détail par auteur. Sert à objectiver la contribution individuelle.
 
-### Étape 6 — Vérifier puis exporter
-
-```bash
-python3 eval/eval.py compute     # aperçu des notes (groupe + individuelle)
-python3 eval/eval.py export      # un bulletin Markdown par étudiant dans eval/out/
-```
-
-`validate` fige l'évaluation (`status = validated`) **et** lance l'export :
+### Étape 3 — Vérifier puis écrire la note
 
 ```bash
-python3 eval/eval.py validate
+python3 eval/eval.py compute     # aperçu des notes (groupe + individuelle), sans écrire
+python3 eval/eval.py write       # insère la note calculée dans chaque evaluation.md
 ```
+
+`write` est **idempotent** : on peut le relancer après chaque modification des niveaux ;
+il rafraîchit uniquement le bloc `<!-- eval:calcul … -->` (note de groupe, scores par
+partie, notes individuelles).
 
 ---
 
@@ -190,89 +135,61 @@ python3 eval/eval.py validate
 
 Le calcul est **entièrement délégué à `eval.py`** — jamais à la main.
 
-1. **Score d'une partie** = moyenne des niveaux **pondérée par les coefficients**,
-   multipliée par le maximum de la partie (18 ou 2).
+1. **Score d'une partie** = moyenne des niveaux **pondérée par les coefficients**
+   (définis dans `bareme.json`), multipliée par le maximum de la partie (18 ou 2).
 2. **Note de groupe /20** = somme des deux parties, ramenée sur /20 et **arrondie au
    0,5 le plus proche** (`round_half_nearest` ; ex. 14,1 → 14,0 ; 14,3 → 14,5).
-3. **Note individuelle (C9)** = `note_groupe × (charge_déclarée ÷ part_égale)`,
+3. **Note individuelle** = `note_groupe × (participation ÷ part_égale)`,
    où `part_égale = 100 % ÷ effectif du groupe`, **plafonnée à 20** puis arrondie au 0,5.
-   Une contribution égale (charge = part égale) laisse la note inchangée (facteur ×1).
-
-> Sans charge saisie, le facteur vaut 1 et le bulletin affiche « **Note finale** »
-> (= note de groupe) au lieu de « **Note individuelle** ».
+   Une contribution égale (participation = part égale) laisse la note inchangée (facteur ×1).
 
 ---
 
 ## 6. Format de sortie
 
-`export` produit `eval/out/<Nom>.md` par étudiant :
+Le compte rendu est `eval/G*/evaluation.md` lui-même. `write` y (re)génère le bloc calculé :
 
 ```markdown
-# <Titre> - <Nom>
+<!-- eval:calcul début … -->
 
-- Date: <horodatage>
-- Groupe: <G…>
-- Note de groupe (livrables): <X>/20 (brut <X.XX>)
-- Charge déclarée: <c>% (part égale <p>% → facteur ×<f>)
-- **Note individuelle: <Y>/20**
+## Note de groupe : **<X,X> / 20** _(brut <X,XX>)_
 
-## Partie: Critères principaux (/18)
+| Partie | Score | Poids |
+|---|:--:|:--:|
+| Critères principaux | <s> / 18 | 90 % |
+| Qualité logicielle avancée | <s> / 2 | 10 % |
 
-Score de la partie: <s> / 18
+### Notes individuelles (participation)
 
-| Question | Évaluation | Commentaire |
-|---|---:|---|
-| 1. Analyse des recommandations ANSSI | 0.75 | … |
-| … | … | … |
+| Étudiant | Participation | Note individuelle |
+|---|:--:|:--:|
+| <NOM Prénom> | <p> % | <Y,Y> / 20 |
 
-## Partie: Qualité logicielle avancée (10 %) (/2)
-…
+<!-- eval:calcul fin -->
 ```
+
+Le reste du fichier (synthèse, tableaux `## Détail`, traçabilité Git, points forts / axes)
+est rédigé par le correcteur et **n'est jamais modifié** par `eval.py`.
 
 ---
 
 ## 7. Aide-mémoire des commandes
 
 ```bash
-# Composition des groupes (depuis groupes.ods)
-python3 eval/tools/cpi_eval.py roster
+# 1. Les étudiants remplissent eval/G*/input.json (membres + participation %).
+# 2. Le correcteur saisit les niveaux dans eval/G*/evaluation.md.
 
-# Pipeline d'évaluation (depuis la racine du dépôt)
-python3 eval/eval.py seed                    # crée la grille (24 critères, /18 + /2)
-python3 eval/eval.py load roster.txt         # étudiants (1 par ligne : "Groupe;Nom")
-python3 eval/eval.py charge                   # charge déclarée (%) par étudiant (C9)
-python3 eval/eval.py grade                    # saisie des niveaux 0 / 0,25 / 0,5 / 0,75 / 1
-python3 eval/eval.py list                     # état de complétude de la saisie
 python3 eval/eval.py commits --repo <dépôt>   # compte-rendu des commits par auteur
-python3 eval/eval.py compute                  # aperçu des notes
-python3 eval/eval.py export                   # bulletins Markdown dans eval/out/
-python3 eval/eval.py validate                 # fige l'évaluation puis exporte
+python3 eval/eval.py compute                  # aperçu des notes (sans écrire)
+python3 eval/eval.py write                     # écrit la note dans chaque evaluation.md
 ```
-
-> `eval.py config` permet de bâtir une grille **manuelle** (parties, questions,
-> coefficients) au lieu de la grille `seed`.
 
 ---
 
-## 8. Utilitaire `tools/cpi_eval.py`
+## 8. Références
 
-Outil d'appoint, sans dépendance, désormais cantonné à :
-
-```bash
-python3 eval/tools/cpi_eval.py roster      # lire la composition des groupes
-python3 eval/tools/cpi_eval.py selftest    # auto-test du moteur de calcul
-python3 eval/tools/cpi_eval.py note --scores "4,4,3,...,0"   # 19 notes (0..4) -> /20
-python3 eval/tools/cpi_eval.py skeleton    # (re)générer les squelettes G*/eval.md
-```
-
-`cpi_eval.py` applique l'**ancienne** formule par groupe (19 critères, notes 0–4) :
-il sert au contrôle de cohérence et à la lecture du roster, **pas** à la notation
-officielle, qui passe par `eval.py`.
-
----
-
-## 9. Références
-
+- **`bareme.json`** — grille machine : critères, coefficients, pondérations.
 - **`evaluation.md`** — barème détaillé, niveau par niveau, des 24 critères.
-- **`REVUE_EVALUATION.md`** — audit du dispositif et décisions C1–C9.
+- **`evaluation.modele.md`** — modèle de compte rendu par groupe.
+- **`REVUE_EVALUATION.md`** — audit historique du dispositif et décisions C1–C9.
 - **Énoncé** — <https://github.com/fabrice1618/dashboard_PHP_rsyslog>.
