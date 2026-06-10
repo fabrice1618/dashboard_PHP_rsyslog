@@ -1,0 +1,35 @@
+{
+  "_instructions": "Remplissez ce fichier avant la soutenance. La somme des participation_pct doit être égale à 100.",
+  "groupe": "GX",
+  "depot_github": "https://github.com/organisation/nom-du-depot",
+  "etudiants": [
+    {
+      "nom": "NOM1",
+      "prenom": "Prenom1",
+      "participation_pct": 50
+    },
+    {
+      "nom": "NOM2",
+      "prenom": "Prenom2",
+      "participation_pct": 50
+    }
+  ],
+  "projet": {
+    "titre": "Titre du projet",
+    "description": "Description courte du projet"
+  },
+  "livrables": {
+    "analyse_anssi": "doc/anssi.md",
+    "procedure_installation": "doc/installation.md",
+    "documentation_utilisateur": "doc/utilisation.md",
+    "tests_validation": "tests/validation.md",
+    "cahier_des_charges": "doc/cahier_des_charges.md",
+    "planning_taches": "doc/planning.md",
+    "uml_use_case": "doc/uml/use_case.png",
+    "uml_deploiement": "doc/uml/deploiement.png",
+    "schema_reseau": "doc/schema_reseau.png",
+    "sitemap": "doc/sitemap.png",
+    "mockup": "doc/mockup.png",
+    "echanges_ia": "doc/echanges_ia.md"
+  }
+}
