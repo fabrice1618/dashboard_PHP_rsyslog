@@ -19,6 +19,12 @@ Commandes:
   compute            Afficher les notes calculées (aperçu, sans écrire).
   write              Réécrire le bloc calculé dans chaque eval/G*/evaluation.md.
   commits --repo P   Compte-rendu des commits Git par auteur (traçabilité).
+
+Options de compute/write :
+  --bareme PATH      Grille à utiliser (défaut : eval/bareme.json ; les notes
+                     historiques se rejouent avec eval/bareme_bts.json).
+  --group Gx         Limiter aux groupes indiqués (répétable). Sans ce filtre,
+                     `write` réécrit TOUS les eval/G*/evaluation.md.
 """
 import argparse
 import glob
@@ -51,12 +57,17 @@ def fr(x: float, dec: int = 2) -> str:
     """Formatage français (virgule décimale)."""
     return f"{x:.{dec}f}".replace(".", ",")
 
-def load_bareme():
-    with open(BAREME_PATH, encoding="utf-8") as f:
+def load_bareme(path=None):
+    with open(path or BAREME_PATH, encoding="utf-8") as f:
         return json.load(f)
 
-def group_dirs():
-    return sorted(d for d in glob.glob(GROUPS_GLOB) if os.path.isdir(d))
+def group_dirs(only=None):
+    """Dossiers eval/G* triés ; `only` (liste de labels, ex. ["G2"]) filtre."""
+    dirs = sorted(d for d in glob.glob(GROUPS_GLOB) if os.path.isdir(d))
+    if only:
+        wanted = set(only)
+        dirs = [d for d in dirs if os.path.basename(d) in wanted]
+    return dirs
 
 
 # --------------------------------------------------------------------------- #
@@ -70,12 +81,13 @@ def load_input(group_dir):
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
-def parse_niveaux(eval_md_path):
-    """Extrait {numero_critère(1..24) -> niveau(float)} des tableaux Détail.
+def parse_niveaux(eval_md_path, valid_ids):
+    """Extrait {numero_critère -> niveau(float)} des tableaux Détail.
 
-    Lit les lignes « | <n> | <critère> | <niveau> | <commentaire> | » où la
-    1re cellule est un entier 1..24 ; cellule vide -> critère non noté (absent
-    du dict). Lève ValueError sur un niveau hors barème.
+    Lit les lignes « | <n> | <critère> | <niveau> | … | » où la 1re cellule
+    est un id de critère présent dans la grille (`valid_ids`) ; le niveau est
+    toujours la 3e cellule ; cellule vide -> critère non noté (absent du
+    dict). Lève ValueError sur un niveau hors barème.
     """
     niveaux = {}
     if not os.path.isfile(eval_md_path):
@@ -89,7 +101,7 @@ def parse_niveaux(eval_md_path):
             if len(cells) < 3 or not cells[0].isdigit():
                 continue
             num = int(cells[0])
-            if not (1 <= num <= 24):
+            if num not in valid_ids:
                 continue
             raw = cells[2].replace(",", ".").strip()
             if raw == "":
@@ -203,22 +215,23 @@ def write_block(eval_md_path, block):
 # --------------------------------------------------------------------------- #
 # Commandes
 # --------------------------------------------------------------------------- #
-def iter_groups(bareme):
+def iter_groups(bareme, only=None):
     """Génère (label, group_dir, data, niveaux, note, note_brut, part_scores, indiv_rows, ungraded)."""
-    for group_dir in group_dirs():
+    valid_ids = {c["id"] for p in bareme["parties"] for c in p["criteres"]}
+    for group_dir in group_dirs(only):
         label = os.path.basename(group_dir)
         data = load_input(group_dir)
         eval_md = os.path.join(group_dir, "evaluation.md")
-        niveaux = parse_niveaux(eval_md)
+        niveaux = parse_niveaux(eval_md, valid_ids)
         note, note_brut, part_scores = compute_group(bareme, niveaux)
         indiv = individual_rows(note, data.get("etudiants", []))
         ungraded = count_ungraded(bareme, niveaux)
         yield label, group_dir, data, niveaux, note, note_brut, part_scores, indiv, ungraded
 
 def cmd_compute(args):
-    bareme = load_bareme()
+    bareme = load_bareme(args.bareme)
     for (label, _gd, _data, _niv, note, note_brut, part_scores, indiv,
-         ungraded) in iter_groups(bareme):
+         ungraded) in iter_groups(bareme, args.group):
         print(f"\n{label} : {fr(note, 1)}/20 (brut {fr(note_brut, 2)})"
               + (f"  ⚠️ {ungraded} critère(s) non noté(s)" if ungraded else ""))
         for nom, score, pmax, _poids in part_scores:
@@ -229,10 +242,10 @@ def cmd_compute(args):
     return 0
 
 def cmd_write(args):
-    bareme = load_bareme()
+    bareme = load_bareme(args.bareme)
     written = 0
     for (label, group_dir, _data, _niv, note, note_brut, part_scores, indiv,
-         ungraded) in iter_groups(bareme):
+         ungraded) in iter_groups(bareme, args.group):
         eval_md = os.path.join(group_dir, "evaluation.md")
         if not os.path.isfile(eval_md):
             print(f"  ! {label} : evaluation.md absent, ignoré.")
@@ -259,6 +272,9 @@ def cmd_commits(args):
     os.makedirs(OUT_DIR, exist_ok=True)
     sl = subprocess.run(["git", "-C", repo, "shortlog", "-sne", "--all", "--no-merges"],
                         capture_output=True, text=True).stdout.strip().splitlines()
+    head = subprocess.run(["git", "-C", repo, "rev-list", "--count", "--no-merges", "HEAD"],
+                          capture_output=True, text=True).stdout.strip()
+    head_count = int(head) if head.isdigit() else 0
 
     repo_label = os.path.basename(os.path.abspath(repo))
     lines = [f"# Compte-rendu des commits - {repo_label}", ""]
@@ -272,7 +288,8 @@ def cmd_commits(args):
         authors.append((int(count_str), author))
     total = sum(c for c, _ in authors)
 
-    lines.append(f"**Total commits (hors merges)** : {total}")
+    lines.append(f"**Total commits (hors merges)** : {total} (toutes branches) — "
+                 f"dont {head_count} sur la branche évaluée (HEAD)")
     lines.append("")
     lines.append("| Commits | Part | Auteur |")
     lines.append("|---:|---:|---|")
@@ -296,7 +313,8 @@ def cmd_commits(args):
     out = os.path.join(OUT_DIR, f"commits_{sanitize_filename(repo_label)}.md")
     with open(out, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
-    print(f"Compte-rendu écrit dans {out} ({total} commits, {len(authors)} auteur(s)).")
+    print(f"Compte-rendu écrit dans {out} ({total} commits toutes branches, "
+          f"{head_count} sur HEAD, {len(authors)} auteur(s)).")
     return 0
 
 def build_parser():
@@ -304,9 +322,17 @@ def build_parser():
     sub = p.add_subparsers(dest="cmd")
 
     sp = sub.add_parser("compute", help="Afficher les notes calculées (aperçu)")
+    sp.add_argument("--bareme", default=None,
+                    help="Grille à utiliser (défaut : eval/bareme.json)")
+    sp.add_argument("--group", action="append", default=None, metavar="Gx",
+                    help="Limiter aux groupes indiqués (répétable)")
     sp.set_defaults(func=cmd_compute)
 
     sp = sub.add_parser("write", help="Réécrire le bloc calculé dans chaque evaluation.md")
+    sp.add_argument("--bareme", default=None,
+                    help="Grille à utiliser (défaut : eval/bareme.json)")
+    sp.add_argument("--group", action="append", default=None, metavar="Gx",
+                    help="Limiter aux groupes indiqués (répétable)")
     sp.set_defaults(func=cmd_write)
 
     sp = sub.add_parser("commits", help="Compte-rendu des commits Git par auteur")

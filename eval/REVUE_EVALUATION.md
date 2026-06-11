@@ -229,4 +229,44 @@ python3 tools/cpi_eval.py note --scores "4,4,3,3,4,2,3,3,2,3,3,2,2,2,3,3,2,0,0"
 **À la main de l'enseignant :** renseigner la colonne `repository` de `groupes.ods` dès réception des dépôts, pour permettre l'évaluation réelle.
 
 ---
-_Rapport généré dans le cadre de la revue « Revue + outillage »._
+
+## Révision CPI 2026-06 — durcissement des exigences au niveau BAC+3
+
+**Constat déclencheur** : la note G1 (15,5/20, grille 24 critères) a été jugée
+sur-évaluée. Cause : descripteurs calibrés BTS — un travail « présent mais non prouvé »
+(tests aux résultats déclaratifs ✅, analyse ANSSI en reformulations génériques,
+performances annoncées jamais mesurées, PHPStan annoncé « sans erreurs » avec 33 erreurs
+constatées) obtenait 0,75/1.
+
+**Décisions :**
+
+1. **Référentiel d'exigences CPI** (`exigences_cpi.md`) : règle de preuve **R-P1…R-P6**
+   — niveau ≥ 0,75 ⇒ artefact vérifié ; déclaratif ⇒ plafond 0,5 ; reformulation sans
+   source ⇒ plafond 0,5 ; affirmation contredite ⇒ plafond 0,25.
+2. **Grille `CPI-2026-06`** (26 critères, 3 parties 40/35/25) : ajout **25 Gestion des
+   risques** et **26 Indicateurs de suivi** (cœur du métier CPI) ; renforcement ANSSI
+   (2→3), Tâches (2→3), IA (1→2), Installation (1→2), Performances (1→2), MVC (1→2) ;
+   affaiblissement des livrables « de présence » (Synoptique 3→2, Sitemap 2→1,
+   Mockup 2→1) ; partie « Vérification et preuve » à 25 %.
+3. **Grille précédente archivée** dans `bareme_bts.json` ; **notes G1 (15,5) et G3 (7,5)
+   gelées** sur cette grille (`eval.py … --bareme eval/bareme_bts.json --group Gx`).
+   `eval.py` étendu : options `--group` (protège les notes gelées) et `--bareme`.
+4. **Pipeline qualité** : skill `verifier-projet` (exécutions outillées → `G*/verifs/`,
+   synthèse annoncé vs constaté) ; 5 sous-agents à contexte focalisé
+   (`eval-gestion-projet`, `eval-securite-anssi`, `eval-conception`, `eval-code`,
+   `eval-preuves`) ; skill `contre-lecture` (preuve citée et existante pour tout
+   niveau ≥ 0,75, calibration inter-groupes) ; orchestration `evaluer-groupe`.
+   Colonne **Preuve** et registre `## Preuves` ajoutés au modèle de compte rendu.
+
+**Étalonnage à blanc sur G1** (recalcul non officiel, note gelée inchangée) :
+
+| Scénario | Note |
+|---|:--:|
+| Niveaux G1 inchangés, grille BTS (officiel) | **15,5** |
+| Niveaux G1 inchangés, grille CPI (25/26 = 0) | 14,0 |
+| Niveaux G1 plafonnés R-P (1→0,5 ; 4→0,5 ; 17→0,25 ; 23→0,25 ; 25/26 = 0), grille CPI | **12,5** |
+
+Le durcissement structurel (−1,5 pt) et la règle de preuve (−1,5 pt supplémentaire)
+corrigent la sur-évaluation constatée ; une ré-évaluation réelle appliquerait d'autres
+plafonds (SMART jamais suivi, installation non rejouée, mockups ASCII) et descendrait
+encore. G2 sera noté directement avec ce dispositif.

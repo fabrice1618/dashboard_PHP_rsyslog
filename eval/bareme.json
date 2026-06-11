@@ -1,47 +1,58 @@
 {
-  "_source": "eval.py + evaluation.md — grille canonique CPI25",
+  "_source": "eval.py + evaluation.md + exigences_cpi.md — grille CPI (BAC+3). Grille BTS archivée : eval/bareme_bts.json",
+  "version": "CPI-2026-06",
   "note_max": 20,
   "niveaux": [0, 0.25, 0.5, 0.75, 1],
   "arrondi": "0.5 le plus proche",
   "parties": [
     {
-      "id": "principaux",
-      "nom": "Critères principaux",
-      "points_max": 18,
-      "poids_pct": 90,
+      "id": "analyse_gestion",
+      "nom": "Analyse et gestion de projet",
+      "points_max": 8,
+      "poids_pct": 40,
       "criteres": [
-        { "id": 1,  "nom": "Analyse des recommandations ANSSI",                    "coefficient": 2 },
-        { "id": 2,  "nom": "Procédure d'installation et configuration serveur",    "coefficient": 1 },
-        { "id": 3,  "nom": "Documentation utilisateur",                            "coefficient": 2 },
-        { "id": 4,  "nom": "Tests de validation (use cases)",                      "coefficient": 3 },
+        { "id": 1,  "nom": "Analyse des recommandations ANSSI",                    "coefficient": 3 },
         { "id": 5,  "nom": "Contexte initial du projet",                           "coefficient": 1 },
         { "id": 6,  "nom": "Besoins exprimés (expression du besoin / évolutions)", "coefficient": 1 },
         { "id": 7,  "nom": "Objectifs du projet",                                  "coefficient": 2 },
         { "id": 8,  "nom": "Fonctions principales",                                "coefficient": 2 },
-        { "id": 9,  "nom": "Tâches détaillées par livrables et par personnes",    "coefficient": 2 },
-        { "id": 10, "nom": "UML Use Case",                                         "coefficient": 2 },
-        { "id": 11, "nom": "UML diagramme de blocs ou de déploiement",            "coefficient": 2 },
-        { "id": 12, "nom": "Schéma synoptique du projet",                          "coefficient": 3 },
-        { "id": 13, "nom": "Sitemap des pages",                                    "coefficient": 2 },
-        { "id": 14, "nom": "Mockup partiel du projet",                             "coefficient": 2 },
-        { "id": 15, "nom": "Code PHP — Architecture MVC",                          "coefficient": 1 },
-        { "id": 16, "nom": "Programmation modulaire",                              "coefficient": 1 },
-        { "id": 17, "nom": "Critères de performances",                             "coefficient": 1 },
+        { "id": 9,  "nom": "Tâches détaillées par livrables et par personnes",    "coefficient": 3 },
         { "id": 18, "nom": "Contraintes techniques",                               "coefficient": 1 },
         { "id": 19, "nom": "Matériels et logiciels mis en œuvre",                  "coefficient": 1 },
-        { "id": 20, "nom": "Traçabilité des commits par étudiant",                 "coefficient": 2, "commun": true },
-        { "id": 21, "nom": "Échanges avec les IA (prompt / résultat)",             "coefficient": 1 }
+        { "id": 21, "nom": "Échanges avec les IA (prompt / résultat)",             "coefficient": 2 },
+        { "id": 25, "nom": "Gestion des risques",                                  "coefficient": 2 },
+        { "id": 26, "nom": "Indicateurs de suivi de projet",                       "coefficient": 2 }
       ]
     },
     {
-      "id": "avance",
-      "nom": "Qualité logicielle avancée",
-      "points_max": 2,
-      "poids_pct": 10,
+      "id": "conception_realisation",
+      "nom": "Conception et réalisation",
+      "points_max": 7,
+      "poids_pct": 35,
       "criteres": [
-        { "id": 22, "nom": "Programmation orientée objet", "coefficient": 2 },
-        { "id": 23, "nom": "Utilisation de PHPStan",       "coefficient": 2 },
-        { "id": 24, "nom": "Tests unitaires",              "coefficient": 2 }
+        { "id": 2,  "nom": "Procédure d'installation et configuration serveur",    "coefficient": 2 },
+        { "id": 3,  "nom": "Documentation utilisateur",                            "coefficient": 2 },
+        { "id": 10, "nom": "UML Use Case",                                         "coefficient": 2 },
+        { "id": 11, "nom": "UML diagramme de blocs ou de déploiement",            "coefficient": 2 },
+        { "id": 12, "nom": "Schéma synoptique du projet",                          "coefficient": 2 },
+        { "id": 13, "nom": "Sitemap des pages",                                    "coefficient": 1 },
+        { "id": 14, "nom": "Mockup partiel du projet",                             "coefficient": 1 },
+        { "id": 15, "nom": "Code PHP — Architecture MVC",                          "coefficient": 2 },
+        { "id": 16, "nom": "Programmation modulaire",                              "coefficient": 1 },
+        { "id": 22, "nom": "Programmation orientée objet",                         "coefficient": 2 }
+      ]
+    },
+    {
+      "id": "verification_preuve",
+      "nom": "Vérification et preuve",
+      "points_max": 5,
+      "poids_pct": 25,
+      "criteres": [
+        { "id": 4,  "nom": "Tests de validation (use cases)",                      "coefficient": 3 },
+        { "id": 17, "nom": "Critères de performances mesurés",                     "coefficient": 2 },
+        { "id": 20, "nom": "Traçabilité des commits par étudiant",                 "coefficient": 2, "commun": true },
+        { "id": 23, "nom": "Utilisation de PHPStan",                               "coefficient": 2 },
+        { "id": 24, "nom": "Tests unitaires",                                      "coefficient": 2 }
       ]
     }
   ],
