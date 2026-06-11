@@ -6,7 +6,7 @@
 - **Dépôt évalué** : <url GitHub>
 - **Commit évalué** : `<sha>` (branche `<branche>`)
 - **Date** : <AAAA-MM-JJ>
-- **Grille** : `eval/bareme.json` version `CPI-2026-06` (26 critères, 3 parties pondérées /8 + /7 + /5)
+- **Grille** : `eval/bareme.json` version `CPI-2026-06` (28 critères, 4 parties pondérées /6 + /5 + /4 + /5)
 - **Vérifications outillées** : `eval/<Gx>/verifs/` du <AAAA-MM-JJ> (skill `verifier-projet`)
 - **Périmètre** : <ex. dépôt Git uniquement>
 
@@ -20,7 +20,7 @@
 
 _<2 à 4 phrases : ce que fait le projet, niveau global, ce qui plafonne la note.>_
 
-## Détail — A. Analyse et gestion de projet (/8)
+## Détail — A. Analyse et gestion de projet (/6)
 
 Saisir la colonne **Niveau** (0 / 0,25 / 0,5 / 0,75 / 1) ; `eval.py` calcule la note.
 La colonne **Preuve** cite l'artefact (chemin, commande, ou réf. `Pn` du registre `## Preuves`) — obligatoire pour tout niveau ≥ 0,75 (R-P5).
@@ -39,7 +39,7 @@ La colonne **Preuve** cite l'artefact (chemin, commande, ou réf. `Pn` du regist
 | 25 | Gestion des risques | | | |
 | 26 | Indicateurs de suivi de projet | | | |
 
-## Détail — B. Conception et réalisation (/7)
+## Détail — B. Conception et réalisation (/5)
 
 | # | Critère | Niveau | Preuve | Commentaire |
 |---|---|:--:|---|---|
@@ -54,7 +54,7 @@ La colonne **Preuve** cite l'artefact (chemin, commande, ou réf. `Pn` du regist
 | 16 | Programmation modulaire | | | |
 | 22 | Programmation orientée objet | | | |
 
-## Détail — C. Vérification et preuve (/5)
+## Détail — C. Vérification et preuve (/4)
 
 | # | Critère | Niveau | Preuve | Commentaire |
 |---|---|:--:|---|---|
@@ -63,6 +63,15 @@ La colonne **Preuve** cite l'artefact (chemin, commande, ou réf. `Pn` du regist
 | 20 | Traçabilité des commits par étudiant *(note commune au groupe)* | | | |
 | 23 | Utilisation de PHPStan | | | |
 | 24 | Tests unitaires | | | |
+
+## Détail — D. Soutenance (/5)
+
+Le niveau (0 / 0,25 / 0,5 / 0,75 / 1) est saisi par le professeur lors de la soutenance.
+
+| # | Critère | Niveau | Commentaire |
+|---|---|:--:|---|
+| 27 | Présentation orale *(3 pts)* | | |
+| 28 | Démonstration du projet *(2 pts)* | | |
 
 ## Preuves
 
@@ -90,4 +99,4 @@ _Cf. `python3 eval.py commits --repo <dépôt>` (rapport généré dans `eval/ou
 - _…_
 
 ---
-_Niveaux saisis à la main ; note de groupe et notes individuelles calculées par `eval.py` (`python3 eval/eval.py write --group <Gx>`). Grille : `eval/bareme.json` version `CPI-2026-06` ; règle de preuve : `eval/exigences_cpi.md`._
+_Niveaux saisis à la main ; note de groupe et notes individuelles calculées par `eval.py` (`python3 eval/eval.py write --group <Gx>`). Grille : `eval/bareme.json` version `CPI-2026-06` (dépôt /15 + soutenance /5 = /20) ; règle de preuve : `eval/exigences_cpi.md`._

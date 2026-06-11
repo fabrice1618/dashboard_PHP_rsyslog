@@ -23,9 +23,11 @@
 
 ## Critères d'évaluation détaillés (1–26)
 
-> La répartition des critères en trois parties (A — Analyse et gestion de projet 40 % ·
-> B — Conception et réalisation 35 % · C — Vérification et preuve 25 %) et les
-> coefficients sont définis dans `eval/bareme.json` (version `CPI-2026-06`).
+> La répartition des critères en quatre parties (A — Analyse et gestion de projet /6 (30 %) ·
+> B — Conception et réalisation /5 (25 %) · C — Vérification et preuve /4 (20 %) ·
+> D — Soutenance /5 (25 %)) et les coefficients sont définis dans `eval/bareme.json`
+> (version `CPI-2026-06`). Les parties A+B+C (dépôt) totalisent 15 pts ; la partie D
+> (présentation orale 3 pts + démonstration 2 pts) est saisie par le professeur en soutenance.
 
 ### 1. Analyse des recommandations ANSSI (Sécurité)
 **Objectif**: Vérifier la prise en compte des bonnes pratiques de sécurité

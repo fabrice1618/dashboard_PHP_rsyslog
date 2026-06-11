@@ -8,8 +8,8 @@
     {
       "id": "analyse_gestion",
       "nom": "Analyse et gestion de projet",
-      "points_max": 8,
-      "poids_pct": 40,
+      "points_max": 6,
+      "poids_pct": 30,
       "criteres": [
         { "id": 1,  "nom": "Analyse des recommandations ANSSI",                    "coefficient": 3 },
         { "id": 5,  "nom": "Contexte initial du projet",                           "coefficient": 1 },
@@ -27,8 +27,8 @@
     {
       "id": "conception_realisation",
       "nom": "Conception et réalisation",
-      "points_max": 7,
-      "poids_pct": 35,
+      "points_max": 5,
+      "poids_pct": 25,
       "criteres": [
         { "id": 2,  "nom": "Procédure d'installation et configuration serveur",    "coefficient": 2 },
         { "id": 3,  "nom": "Documentation utilisateur",                            "coefficient": 2 },
@@ -45,8 +45,8 @@
     {
       "id": "verification_preuve",
       "nom": "Vérification et preuve",
-      "points_max": 5,
-      "poids_pct": 25,
+      "points_max": 4,
+      "poids_pct": 20,
       "criteres": [
         { "id": 4,  "nom": "Tests de validation (use cases)",                      "coefficient": 3 },
         { "id": 17, "nom": "Critères de performances mesurés",                     "coefficient": 2 },
@@ -54,10 +54,20 @@
         { "id": 23, "nom": "Utilisation de PHPStan",                               "coefficient": 2 },
         { "id": 24, "nom": "Tests unitaires",                                      "coefficient": 2 }
       ]
+    },
+    {
+      "id": "soutenance",
+      "nom": "Soutenance",
+      "points_max": 5,
+      "poids_pct": 25,
+      "criteres": [
+        { "id": 27, "nom": "Présentation orale",       "coefficient": 3 },
+        { "id": 28, "nom": "Démonstration du projet",  "coefficient": 2 }
+      ]
     }
   ],
   "calcul": {
-    "note_groupe": "Σ sur chaque partie : (moyenne_pondérée_niveaux × points_max), arrondi au 0.5 le plus proche",
+    "note_groupe": "Σ sur chaque partie : (moyenne_pondérée_niveaux × points_max), arrondi au 0.5 le plus proche. Dépôt /15 (A/6 + B/5 + C/4) + Soutenance /5 = /20",
     "note_individuelle": "note_groupe × (charge_pct ÷ (100 ÷ effectif_groupe)), plafonnée à 20, arrondie au 0.5"
   }
 }
