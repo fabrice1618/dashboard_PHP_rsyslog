@@ -1,5 +1,5 @@
 {
-  "_source": "eval.py + evaluation.md + exigences_cpi.md — grille CPI (BAC+3). Grille BTS archivée : eval/bareme_bts.json",
+  "_source": "eval.py + evaluation.md + exigences_cpi.md — grille CPI (BAC+3)",
   "version": "CPI-2026-06",
   "note_max": 20,
   "niveaux": [0, 0.25, 0.5, 0.75, 1],

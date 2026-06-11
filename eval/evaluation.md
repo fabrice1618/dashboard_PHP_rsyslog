@@ -25,8 +25,7 @@
 
 > La répartition des critères en trois parties (A — Analyse et gestion de projet 40 % ·
 > B — Conception et réalisation 35 % · C — Vérification et preuve 25 %) et les
-> coefficients sont définis dans `eval/bareme.json` (version `CPI-2026-06`). La grille
-> précédente est archivée dans `eval/bareme_bts.json`.
+> coefficients sont définis dans `eval/bareme.json` (version `CPI-2026-06`).
 
 ### 1. Analyse des recommandations ANSSI (Sécurité)
 **Objectif**: Vérifier la prise en compte des bonnes pratiques de sécurité
@@ -320,7 +319,7 @@
 
 Le calcul est entièrement délégué à `eval.py`, à partir des fichiers — **aucune arithmétique manuelle**.
 
-- Chaque critère reçoit un niveau sur l'échelle 0 / 0,25 / 0,5 / 0,75 / 1 (saisi dans `evaluation.md`) et un **coefficient** défini dans `eval/bareme.json` (version `CPI-2026-06` ; grille précédente archivée dans `eval/bareme_bts.json`).
+- Chaque critère reçoit un niveau sur l'échelle 0 / 0,25 / 0,5 / 0,75 / 1 (saisi dans `evaluation.md`) et un **coefficient** défini dans `eval/bareme.json` (version `CPI-2026-06`).
 - La grille est répartie en **trois parties pondérées** :
     - **A — Analyse et gestion de projet** (1, 5-9, 18, 19, 21, 25, 26) → 40 % de la note, partie notée `/8`.
     - **B — Conception et réalisation** (2, 3, 10-16, 22) → 35 % de la note, partie notée `/7`.
@@ -345,8 +344,7 @@ python3 eval/eval.py write --group G2         # insère la note calculée dans e
 rafraîchit uniquement le bloc entre les marqueurs `<!-- eval:calcul … -->`.
 
 > ⚠️ **Toujours utiliser `--group`** : sans filtre, `write` réécrit TOUS les `eval/G*/evaluation.md`
-> avec la grille courante — y compris les groupes notés avec une grille antérieure. Les notes
-> historiques (grille BTS) se rejouent avec `--bareme eval/bareme_bts.json`.
+> avec la grille courante — y compris les groupes notés avec une grille antérieure.
 
 ## Format de sortie
 

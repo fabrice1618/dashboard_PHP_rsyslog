@@ -18,14 +18,12 @@ Sources per group in `eval/G*/`:
 - `evaluation.md` — levels 0 / 0.25 / 0.5 / 0.75 / 1 in the `## Détail` tables (filled by the grader), with a **Preuve** column (mandatory for any level ≥ 0.75 — rule R-P5)
 
 Grille: `eval/bareme.json` version `CPI-2026-06` (26 criteria, coefficients, 3 parts /8 + /7 + /5).
-Previous grid archived as `eval/bareme_bts.json` (authoritative for grades already issued with it: G1, G3).
 Requirements baseline: `eval/exigences_cpi.md` — **proof rule R-P1…R-P6** (unproven claims cap at 0.5, claims contradicted by verification cap at 0.25). Template: `eval/evaluation.modele.md`.
 
 ```bash
 python3 eval/eval.py compute --group G2          # preview grades (no write)
 python3 eval/eval.py write --group G2            # (re)write the computed block
 python3 eval/eval.py commits --repo <path>       # per-author commit report (Git traceability)
-python3 eval/eval.py compute --bareme eval/bareme_bts.json --group G1   # replay a historical grade
 ```
 `eval.py` is stateless (no SQLite, no interactive input). `write` is idempotent — re-run it
 any time after editing the levels; it refreshes the block between the

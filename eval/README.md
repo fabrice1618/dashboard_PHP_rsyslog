@@ -30,8 +30,6 @@ fichiers, et le calcul est **ré-exécutable** autant de fois que voulu.
 Le niveau d'exigence est celui d'un **BAC+3 CPI** (Chef de Projet Informatique), défini
 dans **`exigences_cpi.md`** : la **règle de preuve** (R-P1 à R-P6) plafonne tout élément
 déclaratif non prouvé à 0,5 et toute affirmation contredite par la vérification à 0,25.
-La grille précédente (24 critères, calibrage BTS) est archivée dans `bareme_bts.json` :
-elle fait foi pour les notes déjà rendues avec elle.
 
 La notation se fait **par groupe** ; la note de groupe est ensuite individualisée selon
 la **participation déclarée** de chaque étudiant (lue dans `input.json`).
@@ -54,7 +52,6 @@ note calculée dans chaque `evaluation.md`, dans le bloc délimité par les marq
 |---|---|
 | `eval.py` | Calcul piloté par fichiers : `compute` / `write` / `commits` (options `--group`, `--bareme`). |
 | `bareme.json` | Grille des 26 critères, version `CPI-2026-06` (coefficients, parties /8 + /7 + /5). |
-| `bareme_bts.json` | Grille archivée (24 critères, /18 + /2) — fait foi pour les notes rendues avec elle. |
 | `exigences_cpi.md` | Référentiel d'exigences BAC+3 CPI : règle de preuve R-P1…R-P6, plafonds, format des agents. |
 | `evaluation.md` | Barème détaillé, niveau par niveau (référence de notation). |
 | `evaluation.modele.md` | Modèle vierge de compte rendu par groupe (colonne Preuve, registre `## Preuves`). |
@@ -189,8 +186,7 @@ partie, notes individuelles).
 
 > ⚠️ **Toujours passer `--group`** : sans filtre, `write` réécrit TOUS les
 > `eval/G*/evaluation.md` avec la grille courante, y compris les groupes notés avec une
-> grille antérieure. Pour rejouer une note historique :
-> `python3 eval/eval.py compute --bareme eval/bareme_bts.json --group G1`.
+> grille antérieure.
 
 ---
 
@@ -251,7 +247,6 @@ est rédigé par le correcteur et **n'est jamais modifié** par `eval.py`.
 python3 eval/eval.py commits --repo eval/G2/<nom-du-depot>   # compte-rendu des commits par auteur
 python3 eval/eval.py compute --group G2        # aperçu des notes (sans écrire)
 python3 eval/eval.py write --group G2          # écrit la note dans evaluation.md
-python3 eval/eval.py compute --bareme eval/bareme_bts.json --group G1   # rejouer une note historique
 ```
 
 ---
@@ -259,7 +254,6 @@ python3 eval/eval.py compute --bareme eval/bareme_bts.json --group G1   # rejoue
 ## 8. Références
 
 - **`bareme.json`** — grille machine `CPI-2026-06` : 26 critères, coefficients, 3 parties.
-- **`bareme_bts.json`** — grille archivée (notes déjà rendues : G1, G3).
 - **`exigences_cpi.md`** — référentiel d'exigences BAC+3 CPI, règle de preuve R-P1…R-P6.
 - **`evaluation.md`** — barème détaillé, niveau par niveau, des 26 critères.
 - **`evaluation.modele.md`** — modèle de compte rendu par groupe.

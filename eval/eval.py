@@ -21,8 +21,7 @@ Commandes:
   commits --repo P   Compte-rendu des commits Git par auteur (traçabilité).
 
 Options de compute/write :
-  --bareme PATH      Grille à utiliser (défaut : eval/bareme.json ; les notes
-                     historiques se rejouent avec eval/bareme_bts.json).
+  --bareme PATH      Grille à utiliser (défaut : eval/bareme.json).
   --group Gx         Limiter aux groupes indiqués (répétable). Sans ce filtre,
                      `write` réécrit TOUS les eval/G*/evaluation.md.
 """

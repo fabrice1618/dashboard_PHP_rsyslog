@@ -248,9 +248,9 @@ constatées) obtenait 0,75/1.
    (2→3), Tâches (2→3), IA (1→2), Installation (1→2), Performances (1→2), MVC (1→2) ;
    affaiblissement des livrables « de présence » (Synoptique 3→2, Sitemap 2→1,
    Mockup 2→1) ; partie « Vérification et preuve » à 25 %.
-3. **Grille précédente archivée** dans `bareme_bts.json` ; **notes G1 (15,5) et G3 (7,5)
-   gelées** sur cette grille (`eval.py … --bareme eval/bareme_bts.json --group Gx`).
-   `eval.py` étendu : options `--group` (protège les notes gelées) et `--bareme`.
+3. **Grille précédente retirée du dépôt** ; les notes rendues avec elle (G1 15,5 ;
+   G3 7,5) restent des faits historiques, non rejouables.
+   `eval.py` étendu : options `--group` (protège les notes déjà rendues) et `--bareme`.
 4. **Pipeline qualité** : skill `verifier-projet` (exécutions outillées → `G*/verifs/`,
    synthèse annoncé vs constaté) ; 5 sous-agents à contexte focalisé
    (`eval-gestion-projet`, `eval-securite-anssi`, `eval-conception`, `eval-code`,
@@ -262,7 +262,7 @@ constatées) obtenait 0,75/1.
 
 | Scénario | Note |
 |---|:--:|
-| Niveaux G1 inchangés, grille BTS (officiel) | **15,5** |
+| Niveaux G1 inchangés, grille précédente (officiel) | **15,5** |
 | Niveaux G1 inchangés, grille CPI (25/26 = 0) | 14,0 |
 | Niveaux G1 plafonnés R-P (1→0,5 ; 4→0,5 ; 17→0,25 ; 23→0,25 ; 25/26 = 0), grille CPI | **12,5** |
 
