@@ -13,3 +13,5 @@ eval/roster.txt
 # Python
 __pycache__/
 *.pyc
+# Réglages locaux Claude Code (machine-specific)
+.claude/settings.local.json
